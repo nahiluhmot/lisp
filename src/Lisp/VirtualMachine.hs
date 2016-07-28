@@ -89,9 +89,8 @@ evalInstruction _ Return = return (-1)
 evalInstruction _ (Recur argc) = do
   let defArgs ids args = mapM_ (uncurry localDef) $ S.zip ids args
   result <- gets currentFunc
-  (Function insns ids extra) <- maybe (throwError RecurOutsideOfLambda) return result
+  (Function _ ids extra) <- maybe (throwError RecurOutsideOfLambda) return result
   args <- popN argc
-  liftIO . print $ insns
   case (S.length args `compare` S.length ids, extra) of
     (EQ, Nothing) -> defArgs ids args
     (EQ, Just id) -> defArgs (ids S.|> id) (args S.|> Nil)
