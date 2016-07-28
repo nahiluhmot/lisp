@@ -1,0 +1,56 @@
+name:                lisp
+version:             0.1.0.0
+synopsis:            Compiler and simple virtual machine for Lisp
+description:         Please see README.md
+homepage:            https://github.com/nahiluhmot/lisp
+license:             BSD3
+license-file:        LICENSE
+author:              Tom Hulihan
+maintainer:          hulihan.tom159@gmail.com
+copyright:           2016 Tom Hulihan
+category:            Language
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Lisp
+  other-modules:       Lisp.Index
+                     , Lisp.SymbolTable
+                     , Lisp.Data
+                     , Lisp.Monad
+                     , Lisp.Compiler
+                     , Lisp.VirtualMachine
+                     , Lisp.Parser
+                     , Lisp.Builtins
+                     , Lisp.Repl
+  build-depends:       base >= 4.7 && < 5
+                     , text >= 1.2 && < 2
+                     , containers >= 0.5 && < 1
+                     , hashmap >= 1.3 && < 2
+                     , hashable >= 1.2 && < 2
+                     , mtl >= 2.2 && < 3
+                     , parsec >= 3.1 && < 4
+  default-language:    Haskell2010
+
+executable lisp-exe
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , lisp
+  default-language:    Haskell2010
+
+test-suite lisp-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  build-depends:       base
+                     , lisp
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/nahiluhmot/lisp
