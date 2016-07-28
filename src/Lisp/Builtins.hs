@@ -38,7 +38,7 @@ addBuiltins = do
 
 compileLambda :: S.Seq Value -> LispM (S.Seq Instruction)
 compileLambda list =
-  let namesToIDs = F.foldlM (\acc x -> (S.<| acc) <$> toSymbolID x) S.empty
+  let namesToIDs = F.foldlM (\acc x -> (acc S.|>) <$> toSymbolID x) S.empty
   in  case S.viewl list of
         S.EmptyL -> throwError $ ArgMismatch 1 0
         (args S.:< body) -> do
