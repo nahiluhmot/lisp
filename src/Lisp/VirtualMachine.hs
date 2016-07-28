@@ -87,7 +87,7 @@ evalInstruction pc (Funcall argc) = do
   return $ succ pc
 evalInstruction _ Return = return (-1)
 evalInstruction _ (Recur argc) = do
-  let defArgs ids args = mapM_ (uncurry localDef) $ S.zip ids args
+  let defArgs ids args = localDef' $ S.zip ids args
   result <- gets currentFunc
   (Function _ ids extra) <- maybe (throwError RecurOutsideOfLambda) return result
   args <- popN argc

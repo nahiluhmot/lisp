@@ -121,6 +121,18 @@ localDef key val = do
         Nothing -> throwError FullIndex
         Just scopes' -> put $ state { scopes = scopes' }
 
+localDef' :: Foldable f => f (Int, Value) -> LispM ()
+localDef' defs = do
+  (_, Context ids _ _) <- currentContext
+  case S.viewl ids of
+    S.EmptyL -> throwError NoScope
+    (scopeID S.:< _) -> do
+      scope <- lookupScope scopeID
+      state <- get
+      case I.update scopeID (foldr (uncurry IM.insert) scope defs) $ scopes state of
+        Nothing -> throwError FullIndex
+        Just scopes' -> put $ state { scopes = scopes' }
+
 globalDef :: Int -> Value -> LispM ()
 globalDef key val =
   modify $ \state ->
