@@ -23,6 +23,7 @@ addBuiltins = do
   addBuiltin "def" compileDef
   addBuiltin "if" compileIf
   addBuiltin "recur" compileRecur
+  addBuiltin "let" compileLet
   compileFunctionLikeInstruction Plus 2 >>= globalDef' "+"
   compileFunctionLikeInstruction Minus 2 >>= globalDef' "-"
   compileFunctionLikeInstruction Times 2 >>= globalDef' "*"
@@ -57,6 +58,20 @@ compileLambda list =
             Just (newID, fs') -> do
               modify $ \state -> state { functions = fs' }
               return . S.singleton $ MakeLambda newID
+
+compileLet :: S.Seq Value -> LispM (S.Seq Instruction)
+compileLet list = do
+  when (S.null list) $ throwError $ ArgMismatch 2 0
+  let (defs S.:< body) = S.viewl list
+      go sexp =
+        case toSeq sexp of
+          Right [Symbol id, value] -> (S.|> Set id) <$> compile value
+          _ -> throwError $ InvalidLet sexp
+  case toSeq defs of
+    Right conses -> do
+      bodyInsns <- compileValues body
+      (PushScope S.<|) <$> F.foldrM (\def acc -> (S.>< acc) <$> go def) (bodyInsns S.|> PopScope) conses
+    Left _ -> throwError $ InvalidLet defs
 
 compileRecur :: S.Seq Value -> LispM (S.Seq Instruction)
 compileRecur args = (S.|> Recur (S.length args)) <$> compileValues args

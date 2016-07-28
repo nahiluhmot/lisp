@@ -31,6 +31,16 @@ evalInstruction :: Int -> Instruction -> LispM Int
 evalInstruction pc Noop = return $ succ pc
 evalInstruction pc Pop = pop $> succ pc
 evalInstruction pc (Push val) = push val $> succ pc
+evalInstruction pc PushScope = do
+  result <- gets $ I.insert IM.empty . scopes
+  (scopeID, scopes') <- maybe (throwError FullIndex) return result
+  modify $ \state -> state { scopes = scopes' }
+  modifyContext $ \ctx -> return $ (succ pc, ctx { envIDs = scopeID S.<| envIDs ctx })
+evalInstruction pc PopScope =
+  modifyContext $ \ctx ->
+    case S.viewl $ envIDs ctx of
+      S.EmptyL -> throwError NoScope
+      (_ S.:< envIDs') -> return (succ pc, ctx { envIDs = envIDs' })
 evalInstruction pc (Def sym) = (pop >>= globalDef sym) $> succ pc
 evalInstruction pc (Get sym) = (lookupSymbol sym >>= push) $> succ pc
 evalInstruction pc (Set sym) = (pop >>= localDef sym) $> succ pc

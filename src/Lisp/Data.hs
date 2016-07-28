@@ -24,6 +24,8 @@ type Env = IntMap Value
 data Instruction = Noop
                  | Pop
                  | Push Value
+                 | PushScope
+                 | PopScope
                  | Def Int
                  | Get Int
                  | Set Int
@@ -84,6 +86,7 @@ data LispError = TypeMismatch Text
                | ParseError ParseError
                | FullIndex
                | RecurOutsideOfLambda
+               | InvalidLet Value
                deriving (Show)
 
 type LispM = ExceptT LispError (StateT LispState IO)
