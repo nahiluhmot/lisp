@@ -9,6 +9,7 @@ import Control.Monad.Except
 import Control.Monad.State hiding (state)
 import qualified Data.Foldable as F
 import qualified Data.Sequence as S
+import qualified Data.Text as T
 
 import Lisp.Data
 import Lisp.Monad
@@ -25,30 +26,30 @@ addBuiltins = do
   addBuiltin "if" compileIf
   addBuiltin "recur" compileRecur
   addBuiltin "let" compileLet
-  compileFunctionLikeInstruction Plus 2 >>= globalDef' "+"
-  compileFunctionLikeInstruction Minus 2 >>= globalDef' "-"
-  compileFunctionLikeInstruction Times 2 >>= globalDef' "*"
-  compileFunctionLikeInstruction Divide 2 >>= globalDef' "/"
-  compileFunctionLikeInstruction Eq 2 >>= globalDef' "eq"
-  compileFunctionLikeInstruction Neq 2 >>= globalDef' "neq"
-  compileFunctionLikeInstruction Not 1 >>= globalDef' "not"
-  compileFunctionLikeInstruction ICons 2 >>= globalDef' "cons"
-  compileFunctionLikeInstruction Car 1 >>= globalDef' "car"
-  compileFunctionLikeInstruction Cdr 1 >>= globalDef' "cdr"
-  compileFunctionLikeInstruction Type 1 >>= globalDef' "type-of"
-  compileFunctionLikeInstruction Print 1 >>= globalDef' "puts"
-  compileFunctionLikeInstruction Read 1 >>= globalDef' "read"
-  compileFunctionLikeInstruction Eval 1 >>= globalDef' "eval"
-  compileFunctionLikeInstruction GetLine 0 >>= globalDef' "gets"
+  defFunctionLikeInstruction "+" Plus 2
+  defFunctionLikeInstruction "-" Minus 2
+  defFunctionLikeInstruction "*" Times 2
+  defFunctionLikeInstruction "/" Divide 2
+  defFunctionLikeInstruction "eq" Eq 2
+  defFunctionLikeInstruction "neq" Neq 2
+  defFunctionLikeInstruction "not" Not 1
+  defFunctionLikeInstruction "cons" ICons 2
+  defFunctionLikeInstruction "car" Car 1
+  defFunctionLikeInstruction "cdr" Cdr 1
+  defFunctionLikeInstruction "type-of" Type 1
+  defFunctionLikeInstruction "puts" Print 1
+  defFunctionLikeInstruction "read" Read 1
+  defFunctionLikeInstruction "eval" Eval 1
+  defFunctionLikeInstruction "gets" GetLine 0
 
 compileLambda :: S.Seq Value -> LispM (S.Seq Instruction)
-compileLambda = compileFunc MakeLambda
+compileLambda vals = symbol "lambda" >>= \id -> compileFunc MakeLambda id vals
 
 compileMacro :: S.Seq Value -> LispM (S.Seq Instruction)
-compileMacro = compileFunc MakeMacro
+compileMacro vals = symbol "macro" >>= \id -> compileFunc MakeMacro id vals
 
-compileFunc :: (Int -> Instruction) -> S.Seq Value -> LispM (S.Seq Instruction)
-compileFunc toInsn list =
+compileFunc :: (Int -> Instruction) -> Value -> S.Seq Value -> LispM (S.Seq Instruction)
+compileFunc toInsn name list =
   let namesToIDs = F.foldlM (\acc x -> (acc S.|>) <$> toSymbolID x) S.empty
   in  case S.viewl list of
         S.EmptyL -> throwError $ ArgMismatch 1 0
@@ -61,6 +62,7 @@ compileFunc toInsn list =
           let function = Function { instructions = insns
                                   , argIDs = ids
                                   , extraArgsID = extra
+                                  , source = Right . Cons name $ foldr Cons Nil list
                                   }
           result <- gets (I.insert function . functions)
           case result of
@@ -104,19 +106,20 @@ compileIf list
       else
         return $ cond' S.>< ((BranchUnless (2 + S.length body') S.<| body') S.>< (Jump (2 + S.length rest') S.<| rest'))
 
-compileFunctionLikeInstruction :: Instruction -> Int -> LispM Value
-compileFunctionLikeInstruction insn argc = do
+defFunctionLikeInstruction :: T.Text -> Instruction -> Int -> LispM ()
+defFunctionLikeInstruction name insn argc = do
   let args = [0 .. pred argc]
       func = Function { instructions = F.foldl (\insns arg -> Get arg S.<| insns) (S.singleton insn) args
                       , argIDs = args
                       , extraArgsID = Nothing
+                      , source = Left name
                       }
   result <- gets $ I.insert func . functions
   case result of
     Nothing -> throwError FullIndex
     (Just (funcID, functions')) -> do
       modify $ \state -> state { functions = functions' }
-      return $ Lambda funcID []
+      globalDef' name $ Lambda funcID []
 
 toSymbolID :: Value -> LispM Int
 toSymbolID (Symbol id) = return id

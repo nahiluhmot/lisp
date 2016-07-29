@@ -100,7 +100,7 @@ evalInstruction pc (Funcall argc) = do
   (args S.:> fn) <- fmap S.viewr . popN $ succ argc
   case fn of
     Lambda functionID scopeIDs -> do
-      func@(Function insns ids extra) <- lookupFunction functionID
+      func@(Function insns ids extra _) <- lookupFunction functionID
       currScope <-
         case (S.length args `compare` S.length ids, extra) of
           (EQ, Nothing) -> return $ defArgs ids args
@@ -137,7 +137,7 @@ evalInstruction _ Return = return (-1)
 evalInstruction _ (Recur argc) = do
   let defArgs ids args = localDef' $ S.zip ids args
   result <- gets currentFunc
-  (Function _ ids extra) <- maybe (throwError RecurOutsideOfLambda) return result
+  (Function _ ids extra _) <- maybe (throwError RecurOutsideOfLambda) return result
   args <- popN argc
   case (S.length args `compare` S.length ids, extra) of
     (EQ, Nothing) -> defArgs ids args

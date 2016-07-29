@@ -58,6 +58,7 @@ data Instruction = Noop
 data Function = Function { instructions :: Seq Instruction
                          , argIDs       :: Seq Int
                          , extraArgsID  :: Maybe Int
+                         , source       :: Either Text Value
                          } deriving (Show)
 
 data Context = Context { envIDs    :: Seq Int

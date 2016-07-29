@@ -159,8 +159,20 @@ display c@(Cons _ _)  =
       texts <- mapM display (F.toList xs)
       text <- display x
       return $ "(" `mappend` intercalate " " texts `mappend` " . " `mappend` text `mappend` ")"
-display (Lambda _ _) = return "<lambda>"
-display (Macro _ _) = return "<macro>"
+display (Lambda fID _) = do
+  (Function _ _ _ src) <- lookupFunction fID
+  case src of
+    Left builtin -> return $ "<builtin function: " `mappend` builtin `mappend` ">"
+    Right sexp -> do
+      displayed <- display sexp
+      return $ "#<" `mappend` displayed `mappend` ">"
+display (Macro fID _) = do
+  (Function _ _ _ src) <- lookupFunction fID
+  case src of
+    Left builtin -> return $ "<builtin macro: " `mappend` builtin `mappend` ">"
+    Right sexp -> do
+      displayed <- display sexp
+      return $ "#<" `mappend` displayed `mappend` ">"
 
 typeOf :: Value -> LispM Value
 typeOf Nil = Symbol <$> symToID "nil"
