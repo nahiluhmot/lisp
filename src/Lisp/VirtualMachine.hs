@@ -11,6 +11,7 @@ import Data.Foldable (foldr, foldrM)
 import Data.Functor
 import qualified Data.Sequence as S
 import qualified Data.IntMap as IM
+import qualified Data.Text.IO as IO
 import qualified Data.Traversable as T
 
 import Lisp.Data
@@ -187,6 +188,7 @@ evalInstruction pc Cdr = do
   return $ succ pc
 evalInstruction pc Type = (pop >>= typeOf >>= push) $> succ pc
 evalInstruction pc Print = (pop >>= printVal >> push Nil) $> succ pc
+evalInstruction pc GetLine = (liftIO IO.getLine >>= push . String) $> succ pc
 evalInstruction pc Eval = do
   uncompiled <- pop
   case toSeq uncompiled of

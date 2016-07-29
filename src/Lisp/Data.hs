@@ -50,6 +50,7 @@ data Instruction = Noop
                  | Cdr
                  | Type
                  | Print
+                 | GetLine
                  | Read
                  | Eval
                  deriving (Show)

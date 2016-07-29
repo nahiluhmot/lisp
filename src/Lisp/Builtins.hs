@@ -36,9 +36,10 @@ addBuiltins = do
   compileFunctionLikeInstruction Car 1 >>= globalDef' "car"
   compileFunctionLikeInstruction Cdr 1 >>= globalDef' "cdr"
   compileFunctionLikeInstruction Type 1 >>= globalDef' "type-of"
-  compileFunctionLikeInstruction Print 1 >>= globalDef' "print"
+  compileFunctionLikeInstruction Print 1 >>= globalDef' "puts"
   compileFunctionLikeInstruction Read 1 >>= globalDef' "read"
   compileFunctionLikeInstruction Eval 1 >>= globalDef' "eval"
+  compileFunctionLikeInstruction GetLine 0 >>= globalDef' "gets"
 
 compileLambda :: S.Seq Value -> LispM (S.Seq Instruction)
 compileLambda = compileFunc MakeLambda
