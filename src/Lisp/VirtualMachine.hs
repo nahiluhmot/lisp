@@ -57,6 +57,10 @@ evalInstruction pc (MakeLambda functionID) = do
   (_, Context scope _ _) <- currentContext
   push $ Lambda functionID scope
   return $ succ pc
+evalInstruction pc (MakeMacro functionID) = do
+  (_, Context scope _ _) <- currentContext
+  push $ Macro functionID scope
+  return $ succ pc
 evalInstruction pc (Funcall argc) = do
   let defArgs ids args = foldr (uncurry IM.insert) IM.empty $ S.zip ids args
   (args S.:> fn) <- fmap S.viewr . popN $ succ argc

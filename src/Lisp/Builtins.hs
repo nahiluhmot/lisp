@@ -20,6 +20,7 @@ addBuiltins = do
   globalDef' "nil" Nil
   symToID "t" >>= \id -> globalDef id $ Symbol id
   addBuiltin "lambda" compileLambda
+  addBuiltin "macro" compileMacro
   addBuiltin "def" compileDef
   addBuiltin "if" compileIf
   addBuiltin "recur" compileRecur
@@ -38,7 +39,13 @@ addBuiltins = do
   compileFunctionLikeInstruction Print 1 >>= globalDef' "print"
 
 compileLambda :: S.Seq Value -> LispM (S.Seq Instruction)
-compileLambda list =
+compileLambda = compileFunc MakeLambda
+
+compileMacro :: S.Seq Value -> LispM (S.Seq Instruction)
+compileMacro = compileFunc MakeMacro
+
+compileFunc :: (Int -> Instruction) -> S.Seq Value -> LispM (S.Seq Instruction)
+compileFunc toInsn list =
   let namesToIDs = F.foldlM (\acc x -> (acc S.|>) <$> toSymbolID x) S.empty
   in  case S.viewl list of
         S.EmptyL -> throwError $ ArgMismatch 1 0
@@ -57,7 +64,7 @@ compileLambda list =
             Nothing -> throwError FullIndex
             Just (newID, fs') -> do
               modify $ \state -> state { functions = fs' }
-              return . S.singleton $ MakeLambda newID
+              return [toInsn newID]
 
 compileLet :: S.Seq Value -> LispM (S.Seq Instruction)
 compileLet list = do

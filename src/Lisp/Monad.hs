@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Lisp.Monad where
 
-import Prelude hiding (id, intercalate)
+import Prelude hiding (id)
 
 import Control.Applicative
 import Control.Monad.Except
@@ -160,6 +160,7 @@ display c@(Cons _ _)  =
       text <- display x
       return $ "(" `mappend` intercalate " " texts `mappend` " . " `mappend` text `mappend` ")"
 display (Lambda _ _) = return "<lambda>"
+display (Macro _ _) = return "<macro>"
 
 typeOf :: Value -> LispM Value
 typeOf Nil = Symbol <$> symToID "nil"
@@ -169,6 +170,7 @@ typeOf (String _) = Symbol <$> symToID "string"
 typeOf (Quote _) = Symbol <$> symToID "quote"
 typeOf (Cons _ _) = Symbol <$> symToID "cons"
 typeOf (Lambda _ _) = Symbol <$> symToID "lambda"
+typeOf (Macro _ _) = Symbol <$> symToID "macro"
 
 addBuiltin :: Text -> (S.Seq Value -> LispM (S.Seq Instruction)) -> LispM ()
 addBuiltin name func = do

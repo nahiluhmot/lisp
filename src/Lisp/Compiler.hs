@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLists #-}
 
 module Lisp.Compiler ( compile
                      , compileValues
                      ) where
 
-import Prelude hiding (id)
+import Prelude hiding (id, putStrLn)
 import Control.Monad
 import Control.Monad.Except
 import qualified Data.Foldable as F
@@ -12,6 +13,7 @@ import qualified Data.Sequence as S
 
 import Lisp.Data
 import Lisp.Monad
+import Lisp.VirtualMachine (eval)
 
 compile :: Value -> LispM (S.Seq Instruction)
 compile = compileValue
@@ -35,8 +37,14 @@ compileValue ast = do
           result <- lookupBuiltin fn
           case result of
             Just func -> func args
-            Nothing ->
-              (S.|> Funcall (S.length args)) <$> ((Get fn S.<|) <$> compileValues args)
+            Nothing -> do
+              result' <- fmap Just (lookupSymbol fn) `catchError` const (return Nothing)
+              case result' of
+                Just (Macro fID scopeIDs) -> do
+                  let insns = Push (Lambda fID scopeIDs) S.<| (fmap Push (S.reverse args) S.|> Funcall (S.length args))
+                  expanded <- eval insns
+                  compile expanded
+                _ -> (S.|> Funcall (S.length args)) <$> ((Get fn S.<|) <$> compileValues args)
         (fn@(Cons _ _) S.:< args) ->
           (S.|> Funcall (S.length args)) <$> ((S.><) <$> compileValue fn <*> compileValues args)
         _ -> throwError $ TypeMismatch "symbol"

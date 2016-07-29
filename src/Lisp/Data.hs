@@ -17,6 +17,7 @@ data Value = Nil
            | Quote Value
            | Cons Value Value
            | Lambda Int (Seq Int)
+           | Macro Int (Seq Int)
            deriving (Eq, Show)
 
 type Env = IntMap Value
@@ -33,6 +34,7 @@ data Instruction = Noop
                  | BranchIf Int
                  | BranchUnless Int
                  | MakeLambda Int
+                 | MakeMacro Int
                  | Funcall Int
                  | Return
                  | Recur Int
