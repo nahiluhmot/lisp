@@ -20,7 +20,6 @@ library
                      , Lisp.SymbolTable
                      , Lisp.Data
                      , Lisp.Monad
-                     , Lisp.Compiler
                      , Lisp.VirtualMachine
                      , Lisp.Parser
                      , Lisp.Builtins

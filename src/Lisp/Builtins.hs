@@ -12,7 +12,7 @@ import qualified Data.Sequence as S
 
 import Lisp.Data
 import Lisp.Monad
-import Lisp.Compiler
+import Lisp.VirtualMachine
 import qualified Lisp.Index as I
 
 addBuiltins :: LispM ()
@@ -37,6 +37,8 @@ addBuiltins = do
   compileFunctionLikeInstruction Cdr 1 >>= globalDef' "cdr"
   compileFunctionLikeInstruction Type 1 >>= globalDef' "type-of"
   compileFunctionLikeInstruction Print 1 >>= globalDef' "print"
+  compileFunctionLikeInstruction Read 1 >>= globalDef' "read"
+  compileFunctionLikeInstruction Eval 1 >>= globalDef' "eval"
 
 compileLambda :: S.Seq Value -> LispM (S.Seq Instruction)
 compileLambda = compileFunc MakeLambda

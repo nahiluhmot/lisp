@@ -13,7 +13,6 @@ import System.IO (hFlush, stdout)
 import Lisp.Data
 import Lisp.Monad
 import Lisp.Parser
-import Lisp.Compiler
 import Lisp.Builtins
 import Lisp.VirtualMachine
 

@@ -50,6 +50,8 @@ data Instruction = Noop
                  | Cdr
                  | Type
                  | Print
+                 | Read
+                 | Eval
                  deriving (Show)
 
 data Function = Function { instructions :: Seq Instruction
