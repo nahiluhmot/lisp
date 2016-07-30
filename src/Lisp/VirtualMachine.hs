@@ -91,15 +91,16 @@ evalInstruction pc (MakeLambda func) = do
   (_, Context scope _ _) <- currentContext
   push $ Lambda func scope
   return $ succ pc
-evalInstruction pc (MakeMacro functionID) = do
+evalInstruction pc (MakeMacro func) = do
   (_, Context scope _ _) <- currentContext
-  push $ Macro functionID scope
+  push $ Macro func scope
   return $ succ pc
 evalInstruction pc (Funcall argc) = do
   let defArgs ids args = foldr (uncurry IM.insert) IM.empty $ S.zip ids args
   (args S.:> fn) <- fmap S.viewr . popN $ succ argc
   case fn of
-    Lambda func@(Function insns ids extra _) scopeIDs -> do
+    Lambda (Left func@(NativeFunction _ _)) _ -> run func args >>= push
+    Lambda (Right func@(CompiledFunction insns ids extra _)) scopeIDs -> do
       currScope <-
         case (S.length args `compare` S.length ids, extra) of
           (EQ, Nothing) -> return $ defArgs ids args
@@ -136,7 +137,7 @@ evalInstruction _ Return = return (-1)
 evalInstruction _ (Recur argc) = do
   let defArgs ids args = localDef' $ S.zip ids args
   result <- gets currentFunc
-  (Function _ ids extra _) <- maybe (throwError RecurOutsideOfLambda) return result
+  (CompiledFunction _ ids extra _) <- maybe (throwError RecurOutsideOfLambda) return result
   args <- popN argc
   case (S.length args `compare` S.length ids, extra) of
     (EQ, Nothing) -> defArgs ids args
@@ -153,18 +154,18 @@ evalInstruction pc Times = binMath pc (*)
 evalInstruction pc Divide = binMath pc (/)
 evalInstruction pc Eq = do
   [a, b] <- popN 2
-  let val | a == b = symbol "t"
+  let val | eq a b = symbol "t"
           | otherwise = return Nil
   val >>= push
   return $ succ pc
 evalInstruction pc Neq = do
   [a, b] <- popN 2
-  let val | a == b = return Nil
+  let val | eq a b = return Nil
           | otherwise = symbol "t"
   val >>= push
   return $ succ pc
 evalInstruction pc Not = do
-  isNil <- fmap (== Nil) pop
+  isNil <- eq Nil <$> pop
   let val | isNil = symbol "t"
           | otherwise = return Nil
   val >>= push

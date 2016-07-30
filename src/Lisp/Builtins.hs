@@ -57,12 +57,12 @@ compileFunc toInsn name list =
               (Left (xs, x)) -> (,) <$> namesToIDs xs <*> (Just <$> toSymbolID x)
               (Right xs) -> (, Nothing) <$> namesToIDs xs
           insns <- compileValues (S.reverse body)
-          let function = Function { instructions = insns
-                                  , argIDs = ids
-                                  , extraArgsID = extra
-                                  , source = Right . Cons name $ foldr Cons Nil list
-                                  }
-          return [toInsn function]
+          let compiled = CompiledFunction { instructions = insns
+                                          , argIDs = ids
+                                          , extraArgsID = extra
+                                          , source = Cons name $ foldr Cons Nil list
+                                          }
+          return [toInsn $ Right compiled]
 
 compileLet :: S.Seq Value -> LispM (S.Seq Instruction)
 compileLet list = do
@@ -71,12 +71,12 @@ compileLet list = do
       go sexp =
         case toSeq sexp of
           Right [Symbol id, value] -> (S.|> Set id) <$> compile value
-          _ -> throwError $ InvalidLet sexp
+          _ -> display sexp >>= throwError . InvalidLet
   case toSeq defs of
     Right conses -> do
       bodyInsns <- compileValues body
       (PushScope S.<|) <$> F.foldrM (\def acc -> (S.>< acc) <$> go def) (bodyInsns S.|> PopScope) conses
-    Left _ -> throwError $ InvalidLet defs
+    Left _ -> display defs >>= throwError . InvalidLet
 
 compileRecur :: S.Seq Value -> LispM (S.Seq Instruction)
 compileRecur args = (S.|> Recur (S.length args)) <$> compileValues args
@@ -102,12 +102,12 @@ compileIf list
 defFunctionLikeInstruction :: T.Text -> Instruction -> Int -> LispM ()
 defFunctionLikeInstruction name insn argc = do
   let args = [0 .. pred argc]
-      func = Function { instructions = F.foldl (\insns arg -> Get arg S.<| insns) (S.singleton insn) args
-                      , argIDs = args
-                      , extraArgsID = Nothing
-                      , source = Left name
-                      }
-  globalDef' name $ Lambda func []
+      func = CompiledFunction { instructions = F.foldl (\insns arg -> Get arg S.<| insns) (S.singleton insn) args
+                              , argIDs = args
+                              , extraArgsID = Nothing
+                              , source = Nil
+                              }
+  globalDef' name $ Lambda (Right func) []
 
 toSymbolID :: Value -> LispM Int
 toSymbolID (Symbol id) = return id

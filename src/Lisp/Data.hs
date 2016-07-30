@@ -18,7 +18,6 @@ data Value = Nil
            | Cons Value Value
            | Lambda Function (Seq Int)
            | Macro Function (Seq Int)
-           deriving (Eq, Show)
 
 type Env = IntMap Value
 
@@ -53,18 +52,23 @@ data Instruction = Noop
                  | GetLine
                  | Read
                  | Eval
-                 deriving (Eq, Show)
 
-data Function = Function { instructions :: Seq Instruction
-                         , argIDs       :: Seq Int
-                         , extraArgsID  :: Maybe Int
-                         , source       :: Either Text Value
-                         } deriving (Eq, Show)
+type Function = Either NativeFunction CompiledFunction
+
+data NativeFunction = NativeFunction { name :: Text
+                                     , run  :: S.Seq Value -> LispM Value
+                                     }
+
+data CompiledFunction = CompiledFunction { instructions :: Seq Instruction
+                                         , argIDs       :: Seq Int
+                                         , extraArgsID  :: Maybe Int
+                                         , source       :: Value
+                                         }
 
 data Context = Context { envIDs    :: Seq Int
                        , callerIDs :: Seq Int
                        , valStack  :: Seq Value
-                       } deriving (Eq, Show)
+                       }
 
 data LispState = LispState { symbolTable :: SymbolTable Text
                            , globals     :: Env
@@ -72,7 +76,7 @@ data LispState = LispState { symbolTable :: SymbolTable Text
                            , contexts    :: Index Context
                            , builtins    :: IntMap (S.Seq Value -> LispM (S.Seq Instruction))
                            , context     :: Int
-                           , currentFunc :: Maybe Function
+                           , currentFunc :: Maybe CompiledFunction
                            , nextGC      :: Integer
                            }
 
@@ -91,7 +95,7 @@ data LispError = TypeMismatch Text
                | ParseError ParseError
                | FullIndex
                | RecurOutsideOfLambda
-               | InvalidLet Value
+               | InvalidLet Text
                deriving (Show)
 
 type LispM = ExceptT LispError (StateT LispState IO)

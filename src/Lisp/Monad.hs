@@ -155,18 +155,25 @@ display c@(Cons _ _)  =
       texts <- mapM display (F.toList xs)
       text <- display x
       return $ "(" `mappend` intercalate " " texts `mappend` " . " `mappend` text `mappend` ")"
-display (Lambda (Function _ _ _ src) _) = do
-  case src of
-    Left builtin -> return $ "<builtin function: " `mappend` builtin `mappend` ">"
-    Right sexp -> do
-      displayed <- display sexp
-      return $ "#<" `mappend` displayed `mappend` ">"
-display (Macro (Function _ _ _ src) _) = do
-  case src of
-    Left builtin -> return $ "<builtin macro: " `mappend` builtin `mappend` ">"
-    Right sexp -> do
-      displayed <- display sexp
-      return $ "#<" `mappend` displayed `mappend` ">"
+display (Lambda (Left (NativeFunction n _)) _) = do
+  return $ "#<native function: " `mappend` n `mappend` ">"
+display (Lambda (Right (CompiledFunction _ _ _ src)) _) = do
+  displayed <- display src
+  return $ "#<" `mappend` displayed `mappend` ">"
+display (Macro (Left (NativeFunction n _)) _) = do
+  return $ "#<native macro: " `mappend` n `mappend` ">"
+display (Macro (Right (CompiledFunction _ _ _ src)) _) = do
+  displayed <- display src
+  return $ "#<" `mappend` displayed `mappend` ">"
+
+eq :: Value -> Value -> Bool
+eq Nil Nil = True
+eq (Number x) (Number y) = x == y
+eq (Symbol x) (Symbol y) = x == y
+eq (String x) (String y) = x == y
+eq (Quote x) (Quote y) = x `eq` y
+eq (Cons x y) (Cons x' y') = (x `eq` x') && (y `eq` y')
+eq _ _ = False
 
 typeOf :: Value -> LispM Value
 typeOf Nil = Symbol <$> symToID "nil"
@@ -179,8 +186,8 @@ typeOf (Lambda _ _) = Symbol <$> symToID "lambda"
 typeOf (Macro _ _) = Symbol <$> symToID "macro"
 
 addBuiltin :: Text -> (S.Seq Value -> LispM (S.Seq Instruction)) -> LispM ()
-addBuiltin name func = do
-  id <- symToID name
+addBuiltin sym func = do
+  id <- symToID sym
   modify $ \state -> state { builtins = IM.insert id func (builtins state) }
 
 lookupBuiltin :: Int -> LispM (Maybe (S.Seq Value -> LispM (S.Seq Instruction)))
