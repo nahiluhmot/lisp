@@ -37,21 +37,6 @@ data Instruction = Noop
                  | Funcall Int
                  | Return
                  | Recur Int
-                 | Plus
-                 | Minus
-                 | Times
-                 | Divide
-                 | Eq
-                 | Neq
-                 | Not
-                 | ICons
-                 | Car
-                 | Cdr
-                 | Type
-                 | Print
-                 | GetLine
-                 | Read
-                 | Eval
 
 type Function = Either NativeFunction CompiledFunction
 

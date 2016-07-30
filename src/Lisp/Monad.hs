@@ -13,7 +13,7 @@ import Data.Ratio
 import qualified Data.Sequence as S
 import qualified Data.Traversable as T
 import Data.Text hiding (foldr)
-import Data.Text.IO as IO
+import qualified Data.Text.IO as IO
 
 import Lisp.Data
 import qualified Lisp.Index as I

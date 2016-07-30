@@ -11,12 +11,9 @@ import Data.Foldable (foldr, foldrM)
 import Data.Functor
 import qualified Data.Sequence as S
 import qualified Data.IntMap as IM
-import qualified Data.Text.IO as IO
-import qualified Data.Traversable as T
 
 import Lisp.Data
 import Lisp.Monad
-import Lisp.Parser (parse)
 import qualified Lisp.Index as I
 
 compile :: Value -> LispM (S.Seq Instruction)
@@ -148,68 +145,3 @@ evalInstruction _ (Recur argc) = do
     (GT, Nothing) -> throwError $ ArgMismatch (length ids) (length args)
     (LT, _) -> throwError $ ArgMismatch (length ids) (length args)
   return 0
-evalInstruction pc Plus = binMath pc (+)
-evalInstruction pc Minus = binMath pc (-)
-evalInstruction pc Times = binMath pc (*)
-evalInstruction pc Divide = binMath pc (/)
-evalInstruction pc Eq = do
-  [a, b] <- popN 2
-  let val | eq a b = symbol "t"
-          | otherwise = return Nil
-  val >>= push
-  return $ succ pc
-evalInstruction pc Neq = do
-  [a, b] <- popN 2
-  let val | eq a b = return Nil
-          | otherwise = symbol "t"
-  val >>= push
-  return $ succ pc
-evalInstruction pc Not = do
-  isNil <- eq Nil <$> pop
-  let val | isNil = symbol "t"
-          | otherwise = return Nil
-  val >>= push
-  return $ succ pc
-evalInstruction pc ICons = do
-  [car, cdr] <- popN 2
-  push $ Cons car cdr
-  return $ succ pc
-evalInstruction pc Car = do
-  xs <- pop
-  case xs of
-    (Cons car _) -> push car
-    _ -> throwError $ TypeMismatch "cons"
-  return $ succ pc
-evalInstruction pc Cdr = do
-  xs <- pop
-  case xs of
-    (Cons _ cdr) -> push cdr
-    _ -> throwError $ TypeMismatch "cons"
-  return $ succ pc
-evalInstruction pc Type = (pop >>= typeOf >>= push) $> succ pc
-evalInstruction pc Print = (pop >>= printVal >> push Nil) $> succ pc
-evalInstruction pc GetLine = (liftIO IO.getLine >>= push . String) $> succ pc
-evalInstruction pc Eval = do
-  uncompiled <- pop
-  case toSeq uncompiled of
-    Left _ -> throwError $ CompileDottedList
-    Right vals -> do
-      result <- S.viewr <$> T.mapM (compile >=> eval) vals
-      case result of
-        S.EmptyR -> push Nil
-        (_ S.:> x) -> push x
-  return $ succ pc
-evalInstruction pc Read = do
-  val <- pop
-  case val of
-    String text -> parse text >>= push . foldr Cons Nil
-    _ -> throwError $ TypeMismatch "string"
-  return $ succ pc
-
-binMath :: Int -> (Rational -> Rational -> Rational) -> LispM Int
-binMath pc op = do
-  [a, b] <- popN 2
-  case (a, b) of
-    (Number x, Number y) -> push . Number $ op x y
-    _ -> throwError $ TypeMismatch "number"
-  return $ succ pc

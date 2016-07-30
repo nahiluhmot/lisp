@@ -9,42 +9,112 @@ import Control.Monad.Except
 import qualified Data.Foldable as F
 import qualified Data.Sequence as S
 import qualified Data.Text as T
+import qualified Data.Text.IO as IO
 
 import Lisp.Data
 import Lisp.Monad
+import Lisp.Parser (parse)
 import Lisp.VirtualMachine
 
 addBuiltins :: LispM ()
 addBuiltins = do
   globalDef' "nil" Nil
   symToID "t" >>= \id -> globalDef id $ Symbol id
+
   addBuiltin "lambda" compileLambda
   addBuiltin "macro" compileMacro
   addBuiltin "def" compileDef
   addBuiltin "if" compileIf
   addBuiltin "recur" compileRecur
   addBuiltin "let" compileLet
-  defFunctionLikeInstruction "+" Plus 2
-  defFunctionLikeInstruction "-" Minus 2
-  defFunctionLikeInstruction "*" Times 2
-  defFunctionLikeInstruction "/" Divide 2
-  defFunctionLikeInstruction "eq" Eq 2
-  defFunctionLikeInstruction "neq" Neq 2
-  defFunctionLikeInstruction "not" Not 1
-  defFunctionLikeInstruction "cons" ICons 2
-  defFunctionLikeInstruction "car" Car 1
-  defFunctionLikeInstruction "cdr" Cdr 1
-  defFunctionLikeInstruction "type-of" Type 1
-  defFunctionLikeInstruction "puts" Print 1
-  defFunctionLikeInstruction "read" Read 1
-  defFunctionLikeInstruction "eval" Eval 1
-  defFunctionLikeInstruction "gets" GetLine 0
+
+  defunN 2 "+" $ \[a, b] ->
+    case (a, b) of
+      (Number x, Number y) -> return . Number $ x + y
+      _ -> throwError $ TypeMismatch "number"
+
+  defunN 2 "-" $ \[a, b] ->
+    case (a, b) of
+      (Number x, Number y) -> return . Number $ x - y
+      _ -> throwError $ TypeMismatch "number"
+
+  defunN 2 "*" $ \[a, b] ->
+    case (a, b) of
+      (Number x, Number y) -> return . Number $ x * y
+      _ -> throwError $ TypeMismatch "number"
+
+  defunN 2 "/" $ \[a, b] ->
+    case (a, b) of
+      (Number x, Number y) -> return . Number $ x / y
+      _ -> throwError $ TypeMismatch "number"
+
+  defunN 2 "eq" $ \[a, b] ->
+    if eq a b then symbol "t" else return Nil
+
+  defunN 2 "neq" $ \[a, b] ->
+    if eq a b then return Nil else symbol "t"
+
+  defun1 "not" $ \arg ->
+    if eq arg Nil then symbol "t" else return Nil
+
+  defunN 2 "cons" $ \[a, b] -> return $ Cons a b
+
+  defun1 "car" $ \sexp ->
+    case sexp of
+      (Cons car _) -> return car
+      _ -> throwError $ TypeMismatch "cons"
+
+  defun1 "cdr" $ \sexp ->
+    case sexp of
+      (Cons _ cdr) -> return cdr
+      _ -> throwError $ TypeMismatch "cons"
+
+  defun1 "type-of" typeOf
+
+  defun1 "puts" $ \sexp -> display sexp >>= liftIO . IO.putStrLn >> return Nil
+  defun0 "gets" $ String <$> liftIO IO.getLine
+
+  defun1 "read" $ \sexp ->
+    case sexp of
+      (String text) -> foldr Cons Nil <$> parse text
+      _ -> throwError $ TypeMismatch "string"
+
+  defun1 "eval" $ \sexp ->
+    case toSeq sexp of
+      Left _ -> throwError CompileDottedList
+      Right list -> do
+        result <- S.viewr <$> mapM (compile >=> eval) list
+        case result of
+          S.EmptyR -> return Nil
+          (_ S.:> x) -> return x
 
 compileLambda :: S.Seq Value -> LispM (S.Seq Instruction)
 compileLambda vals = symbol "lambda" >>= \id -> compileFunc MakeLambda id vals
 
 compileMacro :: S.Seq Value -> LispM (S.Seq Instruction)
 compileMacro vals = symbol "macro" >>= \id -> compileFunc MakeMacro id vals
+
+defun :: T.Text -> (S.Seq Value -> LispM Value) -> LispM ()
+defun sym func =
+  globalDef' sym $ Lambda (Left (NativeFunction sym func)) []
+
+defun0 :: T.Text -> LispM Value -> LispM ()
+defun0 sym func =
+  defun sym $ \args -> do
+    when (not $ S.null args) $ throwError $ ArgMismatch 0 (S.length args)
+    func
+
+defun1 :: T.Text -> (Value -> LispM Value) -> LispM ()
+defun1 sym func =
+  defun sym $ \args -> do
+    when (S.length args /= 1) $ throwError $ ArgMismatch 1 (S.length args)
+    func (S.index args 0)
+
+defunN :: Int -> T.Text -> (S.Seq Value -> LispM Value) -> LispM ()
+defunN n sym func =
+  defun sym $ \args -> do
+    when (S.length args /= n) $ throwError $ ArgMismatch n (S.length args)
+    func args
 
 compileFunc :: (Function -> Instruction) -> Value -> S.Seq Value -> LispM (S.Seq Instruction)
 compileFunc toInsn name list =
