@@ -6,7 +6,6 @@ module Lisp.Builtins where
 
 import Prelude hiding (id)
 import Control.Monad.Except
-import Control.Monad.State hiding (state)
 import qualified Data.Foldable as F
 import qualified Data.Sequence as S
 import qualified Data.Text as T
@@ -14,7 +13,6 @@ import qualified Data.Text as T
 import Lisp.Data
 import Lisp.Monad
 import Lisp.VirtualMachine
-import qualified Lisp.Index as I
 
 addBuiltins :: LispM ()
 addBuiltins = do
@@ -48,7 +46,7 @@ compileLambda vals = symbol "lambda" >>= \id -> compileFunc MakeLambda id vals
 compileMacro :: S.Seq Value -> LispM (S.Seq Instruction)
 compileMacro vals = symbol "macro" >>= \id -> compileFunc MakeMacro id vals
 
-compileFunc :: (Int -> Instruction) -> Value -> S.Seq Value -> LispM (S.Seq Instruction)
+compileFunc :: (Function -> Instruction) -> Value -> S.Seq Value -> LispM (S.Seq Instruction)
 compileFunc toInsn name list =
   let namesToIDs = F.foldlM (\acc x -> (acc S.|>) <$> toSymbolID x) S.empty
   in  case S.viewl list of
@@ -58,18 +56,13 @@ compileFunc toInsn name list =
             case toSeq args of
               (Left (xs, x)) -> (,) <$> namesToIDs xs <*> (Just <$> toSymbolID x)
               (Right xs) -> (, Nothing) <$> namesToIDs xs
-          insns <- compileValues body
+          insns <- compileValues (S.reverse body)
           let function = Function { instructions = insns
                                   , argIDs = ids
                                   , extraArgsID = extra
                                   , source = Right . Cons name $ foldr Cons Nil list
                                   }
-          result <- gets (I.insert function . functions)
-          case result of
-            Nothing -> throwError FullIndex
-            Just (newID, fs') -> do
-              modify $ \state -> state { functions = fs' }
-              return [toInsn newID]
+          return [toInsn function]
 
 compileLet :: S.Seq Value -> LispM (S.Seq Instruction)
 compileLet list = do
@@ -114,12 +107,7 @@ defFunctionLikeInstruction name insn argc = do
                       , extraArgsID = Nothing
                       , source = Left name
                       }
-  result <- gets $ I.insert func . functions
-  case result of
-    Nothing -> throwError FullIndex
-    (Just (funcID, functions')) -> do
-      modify $ \state -> state { functions = functions' }
-      globalDef' name $ Lambda funcID []
+  globalDef' name $ Lambda func []
 
 toSymbolID :: Value -> LispM Int
 toSymbolID (Symbol id) = return id

@@ -87,9 +87,9 @@ evalInstruction pc (BranchUnless idx) =
   let branchUnless Nil = pc + idx
       branchUnless _ = succ pc
   in  branchUnless <$> pop
-evalInstruction pc (MakeLambda functionID) = do
+evalInstruction pc (MakeLambda func) = do
   (_, Context scope _ _) <- currentContext
-  push $ Lambda functionID scope
+  push $ Lambda func scope
   return $ succ pc
 evalInstruction pc (MakeMacro functionID) = do
   (_, Context scope _ _) <- currentContext
@@ -99,8 +99,7 @@ evalInstruction pc (Funcall argc) = do
   let defArgs ids args = foldr (uncurry IM.insert) IM.empty $ S.zip ids args
   (args S.:> fn) <- fmap S.viewr . popN $ succ argc
   case fn of
-    Lambda functionID scopeIDs -> do
-      func@(Function insns ids extra _) <- lookupFunction functionID
+    Lambda func@(Function insns ids extra _) scopeIDs -> do
       currScope <-
         case (S.length args `compare` S.length ids, extra) of
           (EQ, Nothing) -> return $ defArgs ids args

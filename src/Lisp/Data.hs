@@ -16,8 +16,8 @@ data Value = Nil
            | String Text
            | Quote Value
            | Cons Value Value
-           | Lambda Int (Seq Int)
-           | Macro Int (Seq Int)
+           | Lambda Function (Seq Int)
+           | Macro Function (Seq Int)
            deriving (Eq, Show)
 
 type Env = IntMap Value
@@ -33,8 +33,8 @@ data Instruction = Noop
                  | Jump Int
                  | BranchIf Int
                  | BranchUnless Int
-                 | MakeLambda Int
-                 | MakeMacro Int
+                 | MakeLambda Function
+                 | MakeMacro Function
                  | Funcall Int
                  | Return
                  | Recur Int
@@ -53,13 +53,13 @@ data Instruction = Noop
                  | GetLine
                  | Read
                  | Eval
-                 deriving (Show)
+                 deriving (Eq, Show)
 
 data Function = Function { instructions :: Seq Instruction
                          , argIDs       :: Seq Int
                          , extraArgsID  :: Maybe Int
                          , source       :: Either Text Value
-                         } deriving (Show)
+                         } deriving (Eq, Show)
 
 data Context = Context { envIDs    :: Seq Int
                        , callerIDs :: Seq Int
@@ -68,7 +68,6 @@ data Context = Context { envIDs    :: Seq Int
 
 data LispState = LispState { symbolTable :: SymbolTable Text
                            , globals     :: Env
-                           , functions   :: Index Function
                            , scopes      :: Index Env
                            , contexts    :: Index Context
                            , builtins    :: IntMap (S.Seq Value -> LispM (S.Seq Instruction))
@@ -110,7 +109,6 @@ emptyLispState =
     Just (ctxID, ctxs) ->
       LispState { symbolTable = ST.empty
                 , globals = IM.empty
-                , functions = I.empty
                 , builtins = IM.empty
                 , scopes = I.empty
                 , contexts = ctxs

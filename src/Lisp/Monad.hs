@@ -52,10 +52,6 @@ lookupScope :: Int -> LispM Env
 lookupScope id = gets (I.lookup id . scopes)
              >>= maybe (throwError $ NoSuchScope id) return
 
-lookupFunction :: Int -> LispM Function
-lookupFunction id = gets (I.lookup id . functions)
-                >>= maybe (throwError $ NoSuchFunction id) return
-
 currentContext :: LispM (Int, Context)
 currentContext = do
   id <- gets context
@@ -159,15 +155,13 @@ display c@(Cons _ _)  =
       texts <- mapM display (F.toList xs)
       text <- display x
       return $ "(" `mappend` intercalate " " texts `mappend` " . " `mappend` text `mappend` ")"
-display (Lambda fID _) = do
-  (Function _ _ _ src) <- lookupFunction fID
+display (Lambda (Function _ _ _ src) _) = do
   case src of
     Left builtin -> return $ "<builtin function: " `mappend` builtin `mappend` ">"
     Right sexp -> do
       displayed <- display sexp
       return $ "#<" `mappend` displayed `mappend` ">"
-display (Macro fID _) = do
-  (Function _ _ _ src) <- lookupFunction fID
+display (Macro (Function _ _ _ src) _) = do
   case src of
     Left builtin -> return $ "<builtin macro: " `mappend` builtin `mappend` ">"
     Right sexp -> do
