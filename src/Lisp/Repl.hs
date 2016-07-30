@@ -13,8 +13,9 @@ import System.IO (hFlush, stdout)
 import Lisp.Data
 import Lisp.Monad
 import Lisp.Parser
-import Lisp.Builtins
+import Lisp.Compiler
 import Lisp.VirtualMachine
+import Lisp.Builtins
 
 repl :: IO ()
 repl =
