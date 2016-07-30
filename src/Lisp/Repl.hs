@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Lisp.Repl where
 
 import Prelude hiding (getLine, putStrLn, putStr)
