@@ -1,3 +1,7 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE TupleSections #-}
+
 module Lisp.Builtins where
 
 import Prelude hiding (id)

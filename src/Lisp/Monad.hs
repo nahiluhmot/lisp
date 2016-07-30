@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Lisp.Monad where
 
 import Prelude hiding (id)
