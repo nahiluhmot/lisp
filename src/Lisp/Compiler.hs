@@ -9,12 +9,10 @@ import Control.Monad.State hiding (state)
 import Control.Monad.Except
 import Data.Foldable (foldrM)
 import qualified Data.Sequence as S
-import qualified Data.IntMap as IM
 
 import Lisp.Data
 import Lisp.Monad
 import Lisp.VirtualMachine
-import qualified Lisp.Index as I
 
 compile :: Value -> LispM (S.Seq Instruction)
 compile ast =
