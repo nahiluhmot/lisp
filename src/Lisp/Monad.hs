@@ -39,18 +39,12 @@ symbol text = Symbol <$> symToID text
 
 lookupSymbol :: Int -> LispM Value
 lookupSymbol id = do
-  es <- scope
+  es <- (S.|>) <$> (scope <$> currentContext) <*> gets globals
   let found = foldr (\env acc -> acc <|> IM.lookup id env) Nothing es
   maybe (idToSym id >>= throwError . UndefinedValue) return found
 
 currentContext :: LispM Context
 currentContext = gets context
-
-stack :: LispM (S.Seq Value)
-stack = valStack <$> currentContext
-
-scope :: LispM (S.Seq Env)
-scope = (S.|>) <$> (envs <$> currentContext) <*> gets globals
 
 modifyContext :: (Context -> LispM (a, Context)) -> LispM a
 modifyContext f = do
@@ -63,7 +57,7 @@ modifyStack :: (S.Seq Value -> LispM (a, S.Seq Value)) -> LispM a
 modifyStack f =
   modifyContext $ \ctx@(Context _ vs) -> do
     (ret, vs') <- f vs
-    return (ret, ctx { valStack = vs' })
+    return (ret, ctx { stack = vs' })
 
 push :: Value -> LispM ()
 push v = modifyStack $ \vs -> return ((), v S.<| vs)
@@ -89,7 +83,7 @@ localDef' defs =
   let insertValues (Context [] _) = throwError NoScope
       insertValues ctx@(Context curr _) =
         let (env S.:< envs') = S.viewl curr
-        in  return $ ((), ctx { envs = foldr (uncurry IM.insert) env defs S.<| envs' })
+        in  return $ ((), ctx { scope = foldr (uncurry IM.insert) env defs S.<| envs' })
   in  modifyContext insertValues
 
 globalDef :: Int -> Value -> LispM ()

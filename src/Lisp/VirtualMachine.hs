@@ -32,12 +32,12 @@ evalInstruction pc Pop = pop $> succ pc
 evalInstruction pc (Push val) = push val $> succ pc
 evalInstruction pc PushScope = do
   modifyContext $ \ctx@(Context scopes _) ->
-    return $ (succ pc, ctx { envs = IM.empty S.<| scopes })
+    return $ (succ pc, ctx { scope = IM.empty S.<| scopes })
 evalInstruction pc PopScope =
   modifyContext $ \ctx ->
-    case S.viewl $ envs ctx of
+    case S.viewl $ scope ctx of
       S.EmptyL -> throwError NoScope
-      (_ S.:< envs') -> return (succ pc, ctx { envs = envs' })
+      (_ S.:< scope') -> return (succ pc, ctx { scope = scope' })
 evalInstruction pc (Def sym) = (pop >>= globalDef sym) $> succ pc
 evalInstruction pc (Get sym) = (lookupSymbol sym >>= push) $> succ pc
 evalInstruction pc (Set sym) = (pop >>= localDef sym) $> succ pc
@@ -63,7 +63,7 @@ evalInstruction pc (Funcall argc) = do
   (args S.:> fn) <- fmap S.viewr . popN $ succ argc
   case fn of
     Lambda (Left func@(NativeFunction _ _)) _ -> run func args >>= push
-    Lambda (Right func@(CompiledFunction insns ids extra _)) envs' -> do
+    Lambda (Right func@(CompiledFunction insns ids extra _)) scope' -> do
       currScope <-
         case (S.length args `compare` S.length ids, extra) of
           (EQ, Nothing) -> return $ defArgs ids args
@@ -74,8 +74,8 @@ evalInstruction pc (Funcall argc) = do
           (GT, Nothing) -> throwError $ ArgMismatch (length ids) (length args)
           (LT, _) -> throwError $ ArgMismatch (length ids) (length args)
       ours <- get
-      let newCtx = Context { envs = currScope S.<| envs'
-                           , valStack = S.empty
+      let newCtx = Context { scope = currScope S.<| scope'
+                           , stack = S.empty
                            }
       let state = ours { context = newCtx, currentFunc = Just func }
       (result, new) <- liftIO $ runLispM (eval insns) state
