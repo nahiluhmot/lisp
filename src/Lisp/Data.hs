@@ -18,7 +18,19 @@ data Value = Nil
            | Lambda Function (Seq Env)
            | Macro Macro (Seq Env)
 
-type Env = IntMap Value
+type Function = Either NativeFunction CompiledFunction
+
+type Macro = Either NativeMacro CompiledFunction
+
+type NativeMacro = (Text, Seq Value -> LispM (Seq Instruction))
+
+type NativeFunction = (Text, Seq Value -> LispM Value)
+
+data CompiledFunction = CompiledFunction { instructions :: Seq Instruction
+                                         , argIDs       :: Seq Int
+                                         , extraArgsID  :: Maybe Int
+                                         , source       :: Value
+                                         }
 
 data Instruction = Noop
                  | Pop
@@ -37,19 +49,7 @@ data Instruction = Noop
                  | Return
                  | Recur Int
 
-type Function = Either NativeFunction CompiledFunction
-
-type Macro = Either NativeMacro CompiledFunction
-
-type NativeMacro = (Text, Seq Value -> LispM (Seq Instruction))
-
-type NativeFunction = (Text, Seq Value -> LispM Value)
-
-data CompiledFunction = CompiledFunction { instructions :: Seq Instruction
-                                         , argIDs       :: Seq Int
-                                         , extraArgsID  :: Maybe Int
-                                         , source       :: Value
-                                         }
+type Env = IntMap Value
 
 data LispState = LispState { symbolTable :: SymbolTable Text
                            , globals     :: Env
