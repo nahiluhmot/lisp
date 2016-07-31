@@ -39,25 +39,25 @@ symbol text = Symbol <$> symToID text
 
 lookupSymbol :: Int -> LispM Value
 lookupSymbol id = do
-  es <- (S.|>) <$> (scope <$> currentContext) <*> gets globals
-  let found = foldr (\env acc -> acc <|> IM.lookup id env) Nothing es
+  state <- get
+  let local = foldr (\env acc -> acc <|> IM.lookup id env) Nothing $ scope state
+      global = IM.lookup id $ globals state
+      found = local <|> global
   maybe (idToSym id >>= throwError . UndefinedValue) return found
 
-currentContext :: LispM Context
-currentContext = gets context
-
-modifyContext :: (Context -> LispM (a, Context)) -> LispM a
-modifyContext f = do
-  ctx <- currentContext
-  (ret, ctx') <- f ctx
-  modify $ \state -> state { context = ctx' }
+modifyScope :: (S.Seq Env -> LispM (a, S.Seq Env)) -> LispM a
+modifyScope f = do
+  envs <- gets scope
+  (ret, envs') <- f envs
+  modify $ \state -> state { scope = envs' }
   return ret
 
 modifyStack :: (S.Seq Value -> LispM (a, S.Seq Value)) -> LispM a
-modifyStack f =
-  modifyContext $ \ctx@(Context _ vs) -> do
-    (ret, vs') <- f vs
-    return (ret, ctx { stack = vs' })
+modifyStack f = do
+  vals <- gets stack
+  (ret, stack') <- f vals
+  modify $ \state -> state { stack = stack' }
+  return ret
 
 push :: Value -> LispM ()
 push v = modifyStack $ \vs -> return ((), v S.<| vs)
@@ -80,11 +80,9 @@ localDef key val = localDef' $ (key, val) : []
 
 localDef' :: Foldable f => f (Int, Value) -> LispM ()
 localDef' defs =
-  let insertValues (Context [] _) = throwError NoScope
-      insertValues ctx@(Context curr _) =
-        let (env S.:< envs') = S.viewl curr
-        in  return $ ((), ctx { scope = foldr (uncurry IM.insert) env defs S.<| envs' })
-  in  modifyContext insertValues
+  let insertValues S.EmptyL = throwError NoScope
+      insertValues (env S.:< envs') = return ((), foldr (uncurry IM.insert) env defs S.<| envs')
+  in  modifyScope (insertValues . S.viewl)
 
 globalDef :: Int -> Value -> LispM ()
 globalDef key val =

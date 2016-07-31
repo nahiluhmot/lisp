@@ -51,20 +51,16 @@ data CompiledFunction = CompiledFunction { instructions :: Seq Instruction
                                          , source       :: Value
                                          }
 
-data Context = Context { scope :: Seq Env, stack :: Seq Value }
-
 data LispState = LispState { symbolTable :: SymbolTable Text
                            , globals     :: Env
-                           , context     :: Context
+                           , scope       :: Seq Env
+                           , stack       :: Seq Value
                            , currentFunc :: Maybe CompiledFunction
                            }
 
 data LispError = TypeMismatch Text
                | EmptyStack
                | NoScope
-               | NoSuchScope Int
-               | NoContext
-               | NoSuchContext Int
                | UndefinedValue Text
                | UnsetSymbol Int
                | ArgMismatch Int Int
@@ -79,14 +75,12 @@ data LispError = TypeMismatch Text
 
 type LispM = ExceptT LispError (StateT LispState IO)
 
-emptyContext :: Context
-emptyContext = Context { scope = S.empty, stack = S.empty }
-
 emptyLispState :: LispState
 emptyLispState =
   LispState { symbolTable = ST.empty
             , globals = IM.empty
-            , context = emptyContext
+            , scope = S.empty
+            , stack = S.empty
             , currentFunc = Nothing
             }
 

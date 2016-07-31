@@ -31,13 +31,13 @@ evalInstruction pc Noop = return $ succ pc
 evalInstruction pc Pop = pop $> succ pc
 evalInstruction pc (Push val) = push val $> succ pc
 evalInstruction pc PushScope = do
-  modifyContext $ \ctx@(Context scopes _) ->
-    return $ (succ pc, ctx { scope = IM.empty S.<| scopes })
+  modifyScope $ \scopes ->
+    return $ (succ pc, IM.empty S.<| scopes)
 evalInstruction pc PopScope =
-  modifyContext $ \ctx ->
-    case S.viewl $ scope ctx of
+  modifyScope $ \scopes ->
+    case S.viewl scopes of
       S.EmptyL -> throwError NoScope
-      (_ S.:< scope') -> return (succ pc, ctx { scope = scope' })
+      (_ S.:< scope') -> return (succ pc, scope')
 evalInstruction pc (Def sym) = (pop >>= globalDef sym) $> succ pc
 evalInstruction pc (Get sym) = (lookupSymbol sym >>= push) $> succ pc
 evalInstruction pc (Set sym) = (pop >>= localDef sym) $> succ pc
@@ -50,14 +50,8 @@ evalInstruction pc (BranchUnless idx) =
   let branchUnless Nil = pc + idx
       branchUnless _ = succ pc
   in  branchUnless <$> pop
-evalInstruction pc (MakeLambda func) = do
-  (Context es _) <- currentContext
-  push $ Lambda func es
-  return $ succ pc
-evalInstruction pc (MakeMacro macro) = do
-  (Context es _) <- currentContext
-  push $ Macro macro es
-  return $ succ pc
+evalInstruction pc (MakeLambda func) = (gets scope >>= push . Lambda func) $> succ pc
+evalInstruction pc (MakeMacro macro) = (gets scope >>= push . Macro macro) $> succ pc
 evalInstruction pc (Funcall argc) = do
   let defArgs ids args = foldr (uncurry IM.insert) IM.empty $ S.zip ids args
   (args S.:> fn) <- fmap S.viewr . popN $ succ argc
@@ -74,13 +68,13 @@ evalInstruction pc (Funcall argc) = do
           (GT, Nothing) -> throwError $ ArgMismatch (length ids) (length args)
           (LT, _) -> throwError $ ArgMismatch (length ids) (length args)
       ours <- get
-      let newCtx = Context { scope = currScope S.<| scope'
-                           , stack = S.empty
-                           }
-      put $ ours { context = newCtx, currentFunc = Just func }
+      put $ ours { scope = currScope S.<| scope', stack = S.empty, currentFunc = Just func }
       val <- eval insns
-      modify $ \state -> state { context = context ours, currentFunc = currentFunc ours }
-      push val
+      modify $ \state ->
+        state { scope = scope ours
+              , stack = val S.<| stack ours
+              , currentFunc = currentFunc ours
+              }
     _ -> throwError $ TypeMismatch "lambda"
   return $ succ pc
 evalInstruction _ Return = return (-1)
