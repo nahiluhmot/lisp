@@ -3,9 +3,10 @@ module Lisp.Parser where
 import Control.Monad.State hiding (state)
 import Control.Monad.Except
 import Data.Char (digitToInt)
+import Data.Functor
+import Data.Sequence
 import Data.Text hiding (foldl, foldr, map)
 import Text.Parsec as P
-import Data.Sequence
 
 import Lisp.Data
 import qualified Lisp.Monad as M
@@ -23,10 +24,10 @@ values :: Parser (Seq Value)
 values = fromList <$> (spaces *> many (value <* spaces))
 
 value :: Parser Value
-value = choice $ map try [ symbol
+value = choice $ map try [ num
+                         , symbol
                          , list
                          , str
-                         , num
                          , quoted
                          , dottedList
                          ]
@@ -53,10 +54,20 @@ str :: Parser Value
 str = String . pack <$> (char '"' *> many (noneOf ['"']) <* char '"')
 
 num :: Parser Value
-num =
-  Number . foldl (\acc x -> (acc * 10) + x) 0
-         . map (fromIntegral . digitToInt)
-         <$> many1 digit
+num = do
+  isPos <- option True $ char '-' $> False
+  n <- foldl (\acc x -> (acc * 10) + x) 0 <$> ints
+  let n' | isPos = n
+         | otherwise = -1 * n
+  result <- optionMaybe $ char '.' *> (foldr (\x acc -> (acc + x) / 10) 0 <$> ints)
+  case result of
+    Nothing -> return $ Number n'
+    Just frac
+      | isPos -> return . Number $ n + frac
+      | otherwise -> return . Number $ n' - frac
+
+ints :: Num a => Parser [a]
+ints = map (fromIntegral . digitToInt) <$> many1 digit
 
 allowedSymbol :: Parser Char
 allowedSymbol = oneOf "+-*/?!="

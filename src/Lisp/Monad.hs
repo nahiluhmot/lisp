@@ -14,6 +14,7 @@ import Data.Ratio
 import qualified Data.Sequence as S
 import Data.Text hiding (foldr)
 import qualified Data.Text.IO as IO
+import Numeric (fromRat)
 
 import Lisp.Data
 import qualified Lisp.SymbolTable as ST
@@ -97,7 +98,9 @@ printVal = liftIO . IO.putStrLn <=< display
 
 display :: Value -> LispM Text
 display Nil = return "nil"
-display (Number val) = return . pack . show $ numerator val
+display (Number val)
+  | denominator val == 1 = return . pack . show $ numerator val
+  | otherwise = return . pack . show $ (fromRat val :: Double)
 display (Symbol id) = idToSym id
 display (String str)  = return $ "\"" `mappend` str `mappend` "\""
 display (Quote val)  = (mappend "'") <$> display val
