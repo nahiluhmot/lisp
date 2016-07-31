@@ -8,7 +8,6 @@ import Data.IntMap as IM
 import Text.Parsec (ParseError)
 
 import Lisp.SymbolTable as ST
-import Lisp.Index as I
 
 data Value = Nil
            | Number Rational
@@ -16,8 +15,8 @@ data Value = Nil
            | String Text
            | Quote Value
            | Cons Value Value
-           | Lambda Function (Seq Int)
-           | Macro Function (Seq Int)
+           | Lambda Function (Seq Env)
+           | Macro Function (Seq Env)
 
 type Env = IntMap Value
 
@@ -41,7 +40,7 @@ data Instruction = Noop
 type Function = Either NativeFunction CompiledFunction
 
 data NativeFunction = NativeFunction { name :: Text
-                                     , run  :: S.Seq Value -> LispM Value
+                                     , run  :: Seq Value -> LispM Value
                                      }
 
 data CompiledFunction = CompiledFunction { instructions :: Seq Instruction
@@ -50,19 +49,15 @@ data CompiledFunction = CompiledFunction { instructions :: Seq Instruction
                                          , source       :: Value
                                          }
 
-data Context = Context { envIDs    :: Seq Int
-                       , callerIDs :: Seq Int
+data Context = Context { envs      :: Seq Env
                        , valStack  :: Seq Value
                        }
 
 data LispState = LispState { symbolTable :: SymbolTable Text
                            , globals     :: Env
-                           , scopes      :: Index Env
-                           , contexts    :: Index Context
-                           , builtins    :: IntMap (S.Seq Value -> LispM (S.Seq Instruction))
-                           , context     :: Int
+                           , builtins    :: IntMap (Seq Value -> LispM (Seq Instruction))
+                           , context     :: Context
                            , currentFunc :: Maybe CompiledFunction
-                           , nextGC      :: Integer
                            }
 
 data LispError = TypeMismatch Text
@@ -86,25 +81,18 @@ data LispError = TypeMismatch Text
 type LispM = ExceptT LispError (StateT LispState IO)
 
 emptyContext :: Context
-emptyContext = Context { envIDs = S.empty
-                       , callerIDs = S.empty
+emptyContext = Context { envs = S.empty
                        , valStack = S.empty
                        }
 
 emptyLispState :: LispState
 emptyLispState =
-  case I.insert emptyContext I.empty of
-    Nothing -> error "Unable to create empty context"
-    Just (ctxID, ctxs) ->
-      LispState { symbolTable = ST.empty
-                , globals = IM.empty
-                , builtins = IM.empty
-                , scopes = I.empty
-                , contexts = ctxs
-                , context = ctxID
-                , currentFunc = Nothing
-                , nextGC = 1024
-                }
+  LispState { symbolTable = ST.empty
+            , globals = IM.empty
+            , builtins = IM.empty
+            , context = emptyContext
+            , currentFunc = Nothing
+            }
 
 toSeq :: Value -> Either (Seq Value, Value) (Seq Value)
 toSeq =

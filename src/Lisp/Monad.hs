@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Lisp.Monad where
 
@@ -8,15 +10,12 @@ import Control.Monad.Except
 import Control.Monad.State hiding (state)
 import qualified Data.Foldable as F
 import qualified Data.IntMap as IM
-import qualified Data.IntSet as IS
 import Data.Ratio
 import qualified Data.Sequence as S
-import qualified Data.Traversable as T
 import Data.Text hiding (foldr)
 import qualified Data.Text.IO as IO
 
 import Lisp.Data
-import qualified Lisp.Index as I
 import qualified Lisp.SymbolTable as ST
 
 runLispM :: LispM a -> LispState -> IO (Either LispError a, LispState)
@@ -40,94 +39,58 @@ symbol text = Symbol <$> symToID text
 
 lookupSymbol :: Int -> LispM Value
 lookupSymbol id = do
-  es <- envs
+  es <- scope
   let found = foldr (\env acc -> acc <|> IM.lookup id env) Nothing es
   maybe (idToSym id >>= throwError . UndefinedValue) return found
 
-lookupContext :: Int -> LispM Context
-lookupContext id = gets (I.lookup id . contexts)
-             >>= maybe (throwError $ NoSuchContext id) return
-
-lookupScope :: Int -> LispM Env
-lookupScope id = gets (I.lookup id . scopes)
-             >>= maybe (throwError $ NoSuchScope id) return
-
-currentContext :: LispM (Int, Context)
-currentContext = do
-  id <- gets context
-  ctx <- lookupContext id
-  return (id, ctx)
-
-callers :: LispM (S.Seq Context)
-callers = fmap (callerIDs . snd) currentContext >>= T.mapM lookupContext
+currentContext :: LispM Context
+currentContext = gets context
 
 stack :: LispM (S.Seq Value)
-stack = fmap (valStack . snd) currentContext
+stack = valStack <$> currentContext
 
-envs :: LispM (S.Seq Env)
-envs = (S.|>) <$> (fmap (envIDs . snd) currentContext >>= T.mapM lookupScope)
-              <*> gets globals
+scope :: LispM (S.Seq Env)
+scope = (S.|>) <$> (envs <$> currentContext) <*> gets globals
 
 modifyContext :: (Context -> LispM (a, Context)) -> LispM a
 modifyContext f = do
-  (id, ctx) <- currentContext
+  ctx <- currentContext
   (ret, ctx') <- f ctx
-  state <- get
-  case I.update id ctx' $ contexts state of
-    Nothing -> throwError $ NoSuchContext id
-    Just contexts' -> do
-      put $ state { contexts = contexts' }
-      return ret
+  modify $ \state -> state { context = ctx' }
+  return ret
 
 modifyStack :: (S.Seq Value -> LispM (a, S.Seq Value)) -> LispM a
 modifyStack f =
-  modifyContext $ \ctx@(Context _ _ vs) -> do
+  modifyContext $ \ctx@(Context _ vs) -> do
     (ret, vs') <- f vs
-    return $ (ret, ctx { valStack = vs' })
+    return (ret, ctx { valStack = vs' })
 
 push :: Value -> LispM ()
-push v = do
-  modifyStack $ \vs -> return ((), v S.<| vs)
+push v = modifyStack $ \vs -> return ((), v S.<| vs)
 
 pop :: LispM Value
-pop = do
-  ret <- modifyStack $ \vs ->
+pop =
+  modifyStack $ \vs ->
     case S.viewl vs of
       S.EmptyL -> throwError EmptyStack
-      (v S.:< vs') -> do
-        return (v, vs')
-  return ret
+      (v S.:< vs') -> return (v, vs')
 
 popN :: Int -> LispM (S.Seq Value)
-popN int = do
-  ret <- modifyStack $ \vs -> do
+popN int =
+  modifyStack $ \vs -> do
     when (S.length vs < int) $ throwError EmptyStack
     return $ S.splitAt int vs
-  return ret
 
 localDef :: Int -> Value -> LispM ()
-localDef key val = do
-  (_, Context ids _ _) <- currentContext
-  case S.viewl ids of
-    S.EmptyL -> throwError NoScope
-    (scopeID S.:< _) -> do
-      scope <- lookupScope scopeID
-      state <- get
-      case I.update scopeID (IM.insert key val scope) $ scopes state of
-        Nothing -> throwError FullIndex
-        Just scopes' -> put $ state { scopes = scopes' }
+localDef key val = localDef' $ (key, val) : []
 
 localDef' :: Foldable f => f (Int, Value) -> LispM ()
-localDef' defs = do
-  (_, Context ids _ _) <- currentContext
-  case S.viewl ids of
-    S.EmptyL -> throwError NoScope
-    (scopeID S.:< _) -> do
-      scope <- lookupScope scopeID
-      state <- get
-      case I.update scopeID (foldr (uncurry IM.insert) scope defs) $ scopes state of
-        Nothing -> throwError FullIndex
-        Just scopes' -> put $ state { scopes = scopes' }
+localDef' defs =
+  let insertValues (Context [] _) = throwError NoScope
+      insertValues ctx@(Context curr _) =
+        let (env S.:< envs') = S.viewl curr
+        in  return $ ((), ctx { envs = foldr (uncurry IM.insert) env defs S.<| envs' })
+  in  modifyContext insertValues
 
 globalDef :: Int -> Value -> LispM ()
 globalDef key val =
@@ -192,42 +155,3 @@ addBuiltin sym func = do
 
 lookupBuiltin :: Int -> LispM (Maybe (S.Seq Value -> LispM (S.Seq Instruction)))
 lookupBuiltin id = gets $ IM.lookup id . builtins
-
-gc :: LispM ()
-gc = do
-  (scopeIDs, contextIDs) <- usedScopesAndContexts
-  state <- get
-  let scopes' = I.select scopeIDs $ scopes state
-      contexts' = I.select contextIDs $ contexts state
-      nextGC' = 2 * max (nextGC state) (fromIntegral (I.size scopes') + fromIntegral (I.size contexts'))
-      state' = state { scopes = scopes'
-                     , contexts = contexts'
-                     , nextGC = nextGC'
-                     }
-  put state'
-
-gcIfNecessary :: LispM ()
-gcIfNecessary = do
-  total <- totalScopesAndContexts
-  next <- gets nextGC
-  when (total >= next) gc
-
-totalScopesAndContexts :: LispM Integer
-totalScopesAndContexts =
-  gets $ \state -> fromIntegral (I.size (contexts state)) + fromIntegral (I.size (scopes state))
-
-usedScopesAndContexts :: LispM (IS.IntSet, IS.IntSet)
-usedScopesAndContexts =
-  let go ctxID scopeIDs ctxIDs = do
-        ctx <- lookupContext ctxID
-        let findEnvIDs (Lambda _ ids) = ids
-            findEnvIDs _ = S.empty
-            scopeIDs' =
-              F.foldr (\val acc -> F.foldr IS.insert acc (findEnvIDs val))
-                      (F.foldr IS.insert scopeIDs (envIDs ctx))
-                      (valStack ctx)
-            ctxIDs' = IS.insert ctxID ctxIDs
-        F.foldrM (uncurry . go)
-                 (scopeIDs', ctxIDs')
-                 (S.filter (flip IS.notMember ctxIDs) $ callerIDs ctx)
-  in  gets context >>= \id -> go id IS.empty IS.empty

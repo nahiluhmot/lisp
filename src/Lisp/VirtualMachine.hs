@@ -14,7 +14,6 @@ import qualified Data.IntMap as IM
 
 import Lisp.Data
 import Lisp.Monad
-import qualified Lisp.Index as I
 
 eval :: S.Seq Instruction -> LispM Value
 eval insns =
@@ -24,7 +23,7 @@ eval insns =
             case e of
               EmptyStack -> return $ Nil
               _ -> throwError e
-        | otherwise = gcIfNecessary >> evalInstruction pc (S.index insns pc) >>= evalIndex
+        | otherwise = evalInstruction pc (S.index insns pc) >>= evalIndex
   in evalIndex 0
 
 evalInstruction :: Int -> Instruction -> LispM Int
@@ -32,15 +31,13 @@ evalInstruction pc Noop = return $ succ pc
 evalInstruction pc Pop = pop $> succ pc
 evalInstruction pc (Push val) = push val $> succ pc
 evalInstruction pc PushScope = do
-  result <- gets $ I.insert IM.empty . scopes
-  (scopeID, scopes') <- maybe (throwError FullIndex) return result
-  modify $ \state -> state { scopes = scopes' }
-  modifyContext $ \ctx -> return $ (succ pc, ctx { envIDs = scopeID S.<| envIDs ctx })
+  modifyContext $ \ctx@(Context scopes _) ->
+    return $ (succ pc, ctx { envs = IM.empty S.<| scopes })
 evalInstruction pc PopScope =
   modifyContext $ \ctx ->
-    case S.viewl $ envIDs ctx of
+    case S.viewl $ envs ctx of
       S.EmptyL -> throwError NoScope
-      (_ S.:< envIDs') -> return (succ pc, ctx { envIDs = envIDs' })
+      (_ S.:< envs') -> return (succ pc, ctx { envs = envs' })
 evalInstruction pc (Def sym) = (pop >>= globalDef sym) $> succ pc
 evalInstruction pc (Get sym) = (lookupSymbol sym >>= push) $> succ pc
 evalInstruction pc (Set sym) = (pop >>= localDef sym) $> succ pc
@@ -54,19 +51,19 @@ evalInstruction pc (BranchUnless idx) =
       branchUnless _ = succ pc
   in  branchUnless <$> pop
 evalInstruction pc (MakeLambda func) = do
-  (_, Context scope _ _) <- currentContext
-  push $ Lambda func scope
+  (Context es _) <- currentContext
+  push $ Lambda func es
   return $ succ pc
 evalInstruction pc (MakeMacro func) = do
-  (_, Context scope _ _) <- currentContext
-  push $ Macro func scope
+  (Context es _) <- currentContext
+  push $ Macro func es
   return $ succ pc
 evalInstruction pc (Funcall argc) = do
   let defArgs ids args = foldr (uncurry IM.insert) IM.empty $ S.zip ids args
   (args S.:> fn) <- fmap S.viewr . popN $ succ argc
   case fn of
     Lambda (Left func@(NativeFunction _ _)) _ -> run func args >>= push
-    Lambda (Right func@(CompiledFunction insns ids extra _)) scopeIDs -> do
+    Lambda (Right func@(CompiledFunction insns ids extra _)) envs' -> do
       currScope <-
         case (S.length args `compare` S.length ids, extra) of
           (EQ, Nothing) -> return $ defArgs ids args
@@ -77,26 +74,14 @@ evalInstruction pc (Funcall argc) = do
           (GT, Nothing) -> throwError $ ArgMismatch (length ids) (length args)
           (LT, _) -> throwError $ ArgMismatch (length ids) (length args)
       ours <- get
-      (ctxID, ctx) <- currentContext
-      case I.insert currScope (scopes ours) of
-        Nothing -> throwError FullIndex
-        Just (scopeID, scopes') ->  do
-          let newCtx = Context { envIDs = scopeID S.<| scopeIDs
-                               , callerIDs = ctxID S.<| callerIDs ctx
-                               , valStack = S.empty
-                               }
-          case I.insert newCtx (contexts ours) of
-            Nothing -> throwError FullIndex
-            Just (ctxID', ctxs') -> do
-              let state = ours { context = ctxID'
-                               , contexts = ctxs'
-                               , scopes = scopes'
-                               , currentFunc = Just func
-                               }
-              (result, new) <- liftIO $ runLispM (eval insns) state
-              val <- either throwError return result
-              put $ new { context = ctxID, currentFunc = currentFunc ours }
-              push val
+      let newCtx = Context { envs = currScope S.<| envs'
+                           , valStack = S.empty
+                           }
+      let state = ours { context = newCtx, currentFunc = Just func }
+      (result, new) <- liftIO $ runLispM (eval insns) state
+      val <- either throwError return result
+      put $ new { context = context ours, currentFunc = currentFunc ours }
+      push val
     _ -> throwError $ TypeMismatch "lambda"
   return $ succ pc
 evalInstruction _ Return = return (-1)
