@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE TupleSections #-}
 
-module Lisp.Builtins where
+module Lisp.Builtins (addBuiltins) where
 
 import Prelude hiding (id)
 import Control.Monad.Except
@@ -22,12 +22,20 @@ addBuiltins = do
   globalDef' "nil" Nil
   symToID "t" >>= \id -> globalDef id $ Symbol id
 
-  addBuiltin "lambda" compileLambda
-  addBuiltin "macro" compileMacro
-  addBuiltin "def" compileDef
-  addBuiltin "if" compileIf
-  addBuiltin "recur" compileRecur
-  addBuiltin "let" compileLet
+  lambda <- symbol "lambda"
+  defmacro "lambda" $ \vals -> do
+    func <- compileFunc lambda vals
+    return $ [MakeLambda (Right func)]
+
+  macro <- symbol "macro"
+  defmacro "macro" $ \vals -> do
+    func <- compileFunc macro vals
+    return $ [MakeMacro (Right func)]
+
+  defmacro "def" compileDef
+  defmacro "if" compileIf
+  defmacro "recur" compileRecur
+  defmacro "let" compileLet
 
   defunN 2 "+" $ \[a, b] ->
     case (a, b) of
@@ -89,15 +97,11 @@ addBuiltins = do
           S.EmptyR -> return Nil
           (_ S.:> x) -> return x
 
-compileLambda :: S.Seq Value -> LispM (S.Seq Instruction)
-compileLambda vals = symbol "lambda" >>= \id -> compileFunc MakeLambda id vals
-
-compileMacro :: S.Seq Value -> LispM (S.Seq Instruction)
-compileMacro vals = symbol "macro" >>= \id -> compileFunc MakeMacro id vals
+defmacro :: T.Text -> (S.Seq Value -> LispM (S.Seq Instruction)) -> LispM ()
+defmacro sym func = globalDef' sym $ Macro (Left (sym, func)) []
 
 defun :: T.Text -> (S.Seq Value -> LispM Value) -> LispM ()
-defun sym func =
-  globalDef' sym $ Lambda (Left (NativeFunction sym func)) []
+defun sym func = globalDef' sym $ Lambda (Left (sym, func)) []
 
 defun0 :: T.Text -> LispM Value -> LispM ()
 defun0 sym func =
@@ -117,23 +121,22 @@ defunN n sym func =
     when (S.length args /= n) $ throwError $ ArgMismatch n (S.length args)
     func args
 
-compileFunc :: (Function -> Instruction) -> Value -> S.Seq Value -> LispM (S.Seq Instruction)
-compileFunc toInsn name list =
+compileFunc :: Value -> S.Seq Value -> LispM CompiledFunction
+compileFunc sym list = do
   let namesToIDs = F.foldlM (\acc x -> (acc S.|>) <$> toSymbolID x) S.empty
-  in  case S.viewl list of
-        S.EmptyL -> throwError $ ArgMismatch 1 0
-        (args S.:< body) -> do
-          (ids, extra) <-
-            case toSeq args of
-              (Left (xs, x)) -> (,) <$> namesToIDs xs <*> (Just <$> toSymbolID x)
-              (Right xs) -> (, Nothing) <$> namesToIDs xs
-          insns <- compileValues (S.reverse body)
-          let compiled = CompiledFunction { instructions = insns
-                                          , argIDs = ids
-                                          , extraArgsID = extra
-                                          , source = Cons name $ foldr Cons Nil list
-                                          }
-          return [toInsn $ Right compiled]
+  case S.viewl list of
+    S.EmptyL -> throwError $ ArgMismatch 1 0
+    (args S.:< body) -> do
+      (ids, extra) <-
+        case toSeq args of
+          (Left (xs, x)) -> (,) <$> namesToIDs xs <*> (Just <$> toSymbolID x)
+          (Right xs) -> (, Nothing) <$> namesToIDs xs
+      insns <- compileValues (S.reverse body)
+      return $ CompiledFunction { instructions = insns
+                                , argIDs = ids
+                                , extraArgsID = extra
+                                , source = Cons sym $ foldr Cons Nil list
+                                }
 
 compileLet :: S.Seq Value -> LispM (S.Seq Instruction)
 compileLet list = do
@@ -169,16 +172,6 @@ compileIf list
         return $ cond' S.>< (BranchUnless (2 + S.length body') S.<| body')
       else
         return $ cond' S.>< ((BranchUnless (2 + S.length body') S.<| body') S.>< (Jump (2 + S.length rest') S.<| rest'))
-
-defFunctionLikeInstruction :: T.Text -> Instruction -> Int -> LispM ()
-defFunctionLikeInstruction name insn argc = do
-  let args = [0 .. pred argc]
-      func = CompiledFunction { instructions = F.foldl (\insns arg -> Get arg S.<| insns) (S.singleton insn) args
-                              , argIDs = args
-                              , extraArgsID = Nothing
-                              , source = Nil
-                              }
-  globalDef' name $ Lambda (Right func) []
 
 toSymbolID :: Value -> LispM Int
 toSymbolID (Symbol id) = return id

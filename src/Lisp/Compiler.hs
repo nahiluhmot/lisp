@@ -27,17 +27,14 @@ compile ast =
       case S.viewl list of
         S.EmptyL -> return $ S.singleton (Push Nil)
         (Symbol fn S.:< args) -> do
-          result <- lookupBuiltin fn
-          case result of
-            Just func -> func args
-            Nothing -> do
-              result' <- fmap Just (lookupSymbol fn) `catchError` const (return Nothing)
-              case result' of
-                Just (Macro fID scopeIDs) -> do
-                  let insns = Push (Lambda fID scopeIDs) S.<| (fmap Push (S.reverse args) S.|> Funcall (S.length args))
-                  expanded <- eval insns
-                  compile expanded
-                _ -> (S.|> Funcall (S.length args)) <$> ((Get fn S.<|) <$> compileValues args)
+          result' <- fmap Just (lookupSymbol fn) `catchError` const (return Nothing)
+          case result' of
+            Just (Macro (Left (_, native)) _) -> native args
+            Just (Macro (Right compiled) scopeIDs) -> do
+              let insns = Push (Lambda (Right compiled) scopeIDs) S.<| (fmap Push (S.reverse args) S.|> Funcall (S.length args))
+              expanded <- eval insns
+              compile expanded
+            _ -> (S.|> Funcall (S.length args)) <$> ((Get fn S.<|) <$> compileValues args)
         (fn@(Cons _ _) S.:< args) ->
           (S.|> Funcall (S.length args)) <$> ((S.><) <$> compile fn <*> compileValues args)
         _ -> throwError $ TypeMismatch "symbol"

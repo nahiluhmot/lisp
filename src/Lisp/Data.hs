@@ -16,7 +16,7 @@ data Value = Nil
            | Quote Value
            | Cons Value Value
            | Lambda Function (Seq Env)
-           | Macro Function (Seq Env)
+           | Macro Macro (Seq Env)
 
 type Env = IntMap Value
 
@@ -32,16 +32,18 @@ data Instruction = Noop
                  | BranchIf Int
                  | BranchUnless Int
                  | MakeLambda Function
-                 | MakeMacro Function
+                 | MakeMacro Macro
                  | Funcall Int
                  | Return
                  | Recur Int
 
 type Function = Either NativeFunction CompiledFunction
 
-data NativeFunction = NativeFunction { name :: Text
-                                     , run  :: Seq Value -> LispM Value
-                                     }
+type Macro = Either NativeMacro CompiledFunction
+
+type NativeMacro = (Text, Seq Value -> LispM (Seq Instruction))
+
+type NativeFunction = (Text, Seq Value -> LispM Value)
 
 data CompiledFunction = CompiledFunction { instructions :: Seq Instruction
                                          , argIDs       :: Seq Int
@@ -53,7 +55,6 @@ data Context = Context { scope :: Seq Env, stack :: Seq Value }
 
 data LispState = LispState { symbolTable :: SymbolTable Text
                            , globals     :: Env
-                           , builtins    :: IntMap (Seq Value -> LispM (Seq Instruction))
                            , context     :: Context
                            , currentFunc :: Maybe CompiledFunction
                            }
@@ -85,7 +86,6 @@ emptyLispState :: LispState
 emptyLispState =
   LispState { symbolTable = ST.empty
             , globals = IM.empty
-            , builtins = IM.empty
             , context = emptyContext
             , currentFunc = Nothing
             }

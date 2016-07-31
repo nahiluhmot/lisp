@@ -54,15 +54,15 @@ evalInstruction pc (MakeLambda func) = do
   (Context es _) <- currentContext
   push $ Lambda func es
   return $ succ pc
-evalInstruction pc (MakeMacro func) = do
+evalInstruction pc (MakeMacro macro) = do
   (Context es _) <- currentContext
-  push $ Macro func es
+  push $ Macro macro es
   return $ succ pc
 evalInstruction pc (Funcall argc) = do
   let defArgs ids args = foldr (uncurry IM.insert) IM.empty $ S.zip ids args
   (args S.:> fn) <- fmap S.viewr . popN $ succ argc
   case fn of
-    Lambda (Left func@(NativeFunction _ _)) _ -> run func args >>= push
+    Lambda (Left (_, run)) _ -> run args >>= push
     Lambda (Right func@(CompiledFunction insns ids extra _)) scope' -> do
       currScope <-
         case (S.length args `compare` S.length ids, extra) of
