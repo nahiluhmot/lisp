@@ -77,10 +77,9 @@ evalInstruction pc (Funcall argc) = do
       let newCtx = Context { scope = currScope S.<| scope'
                            , stack = S.empty
                            }
-      let state = ours { context = newCtx, currentFunc = Just func }
-      (result, new) <- liftIO $ runLispM (eval insns) state
-      val <- either throwError return result
-      put $ new { context = context ours, currentFunc = currentFunc ours }
+      put $ ours { context = newCtx, currentFunc = Just func }
+      val <- eval insns
+      modify $ \state -> state { context = context ours, currentFunc = currentFunc ours }
       push val
     _ -> throwError $ TypeMismatch "lambda"
   return $ succ pc
