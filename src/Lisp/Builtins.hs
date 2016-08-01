@@ -25,12 +25,12 @@ addBuiltins = do
   lambda <- symbol "lambda"
   defmacro "lambda" $ \vals -> do
     func <- compileFunc lambda vals
-    return $ [MakeLambda (Right func)]
+    return $ [MakeLambda func]
 
   macro <- symbol "macro"
   defmacro "macro" $ \vals -> do
     func <- compileFunc macro vals
-    return $ [MakeMacro (Right func)]
+    return $ [MakeMacro func]
 
   defmacro "def" compileDef
   defmacro "if" compileIf

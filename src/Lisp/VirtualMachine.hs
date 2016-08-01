@@ -50,8 +50,8 @@ evalInstruction pc (BranchUnless idx) =
   let branchUnless Nil = pc + idx
       branchUnless _ = succ pc
   in  branchUnless <$> pop
-evalInstruction pc (MakeLambda func) = (gets scope >>= push . Lambda func) $> succ pc
-evalInstruction pc (MakeMacro macro) = (gets scope >>= push . Macro macro) $> succ pc
+evalInstruction pc (MakeLambda func) = (gets scope >>= push . Lambda (Right func)) $> succ pc
+evalInstruction pc (MakeMacro macro) = (gets scope >>= push . Macro (Right macro)) $> succ pc
 evalInstruction pc (Funcall argc) = do
   let defArgs ids args = foldr (uncurry IM.insert) IM.empty $ S.zip ids args
   (args S.:> fn) <- fmap S.viewr . popN $ succ argc

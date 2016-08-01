@@ -43,8 +43,8 @@ data Instruction = Noop
                  | Jump Int
                  | BranchIf Int
                  | BranchUnless Int
-                 | MakeLambda Function
-                 | MakeMacro Macro
+                 | MakeLambda CompiledFunction
+                 | MakeMacro CompiledFunction
                  | Funcall Int
                  | Return
                  | Recur Int
