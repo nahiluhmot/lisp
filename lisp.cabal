@@ -23,6 +23,7 @@ library
                      , Lisp.Compiler
                      , Lisp.VirtualMachine
                      , Lisp.Parser
+                     , Lisp.Helpers
                      , Lisp.Builtins
                      , Lisp.Repl
   build-depends:       base >= 4.7 && < 5

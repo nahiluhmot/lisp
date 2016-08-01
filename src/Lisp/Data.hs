@@ -90,3 +90,12 @@ toSeq =
       go acc Nil = Right acc
       go acc val = Left (acc, val)
   in  go S.empty
+
+instance Eq Value where
+  (==) Nil Nil = True
+  (==) (Number x) (Number y) = x == y
+  (==) (Symbol x) (Symbol y) = x == y
+  (==) (String x) (String y) = x == y
+  (==) (Quote x) (Quote y) = x == y
+  (==) (Cons x y) (Cons x' y') = (x == x') && (y == y')
+  (==) _ _ = False

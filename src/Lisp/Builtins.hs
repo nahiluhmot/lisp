@@ -7,6 +7,7 @@ module Lisp.Builtins (addBuiltins) where
 import Prelude hiding (id)
 import Control.Monad.Except
 import qualified Data.Foldable as F
+import Data.Functor
 import qualified Data.Sequence as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as IO
@@ -16,6 +17,7 @@ import Lisp.Monad
 import Lisp.Parser (parse)
 import Lisp.VirtualMachine
 import Lisp.Compiler
+import Lisp.Helpers
 
 addBuiltins :: LispM ()
 addBuiltins = do
@@ -58,13 +60,13 @@ addBuiltins = do
       _ -> throwError $ TypeMismatch "number"
 
   defunN 2 "eq" $ \[a, b] ->
-    if eq a b then symbol "t" else return Nil
+    if a == b then symbol "t" else return Nil
 
   defunN 2 "neq" $ \[a, b] ->
-    if eq a b then return Nil else symbol "t"
+    if a == b then return Nil else symbol "t"
 
   defun1 "not" $ \arg ->
-    if eq arg Nil then symbol "t" else return Nil
+    if arg == Nil then symbol "t" else return Nil
 
   defunN 2 "cons" $ \[a, b] -> return $ Cons a b
 
@@ -82,7 +84,7 @@ addBuiltins = do
 
   defun1 "type-of" typeOf
 
-  defun1 "puts" $ \sexp -> display sexp >>= liftIO . IO.putStrLn >> return Nil
+  defun1 "puts" $ \sexp -> printVal sexp $> Nil
   defun0 "gets" $ String <$> liftIO IO.getLine
 
   defun1 "read" $ \sexp ->
@@ -178,3 +180,13 @@ compileIf list
 toSymbolID :: Value -> LispM Int
 toSymbolID (Symbol id) = return id
 toSymbolID _ = throwError $ TypeMismatch "symbol"
+
+typeOf :: Value -> LispM Value
+typeOf Nil = symbol "nil"
+typeOf (Number _) = symbol "number"
+typeOf (Symbol _) = symbol "symbol"
+typeOf (String _) = symbol "string"
+typeOf (Quote _) = symbol "quote"
+typeOf (Cons _ _) = symbol "cons"
+typeOf (Lambda _ _) = symbol "lambda"
+typeOf (Macro _ _) = symbol "macro"
