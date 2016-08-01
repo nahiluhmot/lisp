@@ -78,6 +78,8 @@ addBuiltins = do
       (Cons _ cdr) -> return cdr
       _ -> throwError $ TypeMismatch "cons"
 
+  defun "list" $ return . foldr Cons Nil
+
   defun1 "type-of" typeOf
 
   defun1 "puts" $ \sexp -> display sexp >>= liftIO . IO.putStrLn >> return Nil
