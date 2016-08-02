@@ -63,16 +63,16 @@ push :: Value -> LispM ()
 push v = modifyStack $ \vs -> return ((), v <| vs)
 
 pop :: LispM Value
-pop =
-  let go EmptyL = throwError EmptyStack
-      go (v :< vs') = return (v, vs')
-  in  modifyStack $ go . viewl
+pop = flip S.index 0 <$> popN 1
 
 popN :: Int -> LispM (Seq Value)
 popN int =
-  modifyStack $ \vs -> do
-    when (S.length vs < int) $ throwError EmptyStack
-    return $ S.splitAt int vs
+  let go 0 before after = return (before, after)
+      go _ _ [] = throwError EmptyStack
+      go n before after =
+        let (val S.:< after') = viewl after
+        in  go (pred n) (val S.<| before) after'
+  in  modifyStack $ go int []
 
 localDef :: Int -> Value -> LispM ()
 localDef key val = localDef' [(key, val)]

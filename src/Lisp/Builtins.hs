@@ -116,10 +116,7 @@ defun0 sym func =
     func
 
 defun1 :: T.Text -> (Value -> LispM Value) -> LispM ()
-defun1 sym func =
-  defun sym $ \args -> do
-    when (S.length args /= 1) $ throwError $ ArgMismatch 1 (S.length args)
-    func (S.index args 0)
+defun1 sym func = defunN 1 sym $ func . flip S.index 0
 
 defunN :: Int -> T.Text -> (S.Seq Value -> LispM Value) -> LispM ()
 defunN n sym func =
@@ -129,7 +126,7 @@ defunN n sym func =
 
 compileFunc :: Value -> S.Seq Value -> LispM CompiledFunction
 compileFunc sym list = do
-  let namesToIDs = F.foldlM (\acc x -> (acc S.|>) <$> toSymbolID x) S.empty
+  let namesToIDs = mapM toSymbolID
   case S.viewl list of
     S.EmptyL -> throwError $ ArgMismatch 1 0
     (args S.:< body) -> do
@@ -137,7 +134,7 @@ compileFunc sym list = do
         case toSeq args of
           (Left (xs, x)) -> (,) <$> namesToIDs xs <*> (Just <$> toSymbolID x)
           (Right xs) -> (, Nothing) <$> namesToIDs xs
-      insns <- compileValues (S.reverse body)
+      insns <- compileValues body
       return $ CompiledFunction { instructions = insns
                                 , argIDs = ids
                                 , extraArgsID = extra

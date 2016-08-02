@@ -53,7 +53,7 @@ evalInstruction pc (BranchUnless idx) =
 evalInstruction pc (MakeLambda func) = (gets scope >>= push . Lambda (Right func)) $> succ pc
 evalInstruction pc (MakeMacro macro) = (gets scope >>= push . Macro (Right macro)) $> succ pc
 evalInstruction pc (Funcall argc) = do
-  (args :> fn) <- fmap viewr . popN $ succ argc
+  (fn :< args) <- fmap viewl . popN $ succ argc
   case fn of
     Lambda (Left (_, run)) _ -> run args >>= push
     Lambda (Right func@(CompiledFunction insns ids extra _)) scope' -> do
