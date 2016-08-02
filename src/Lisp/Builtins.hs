@@ -34,6 +34,12 @@ addBuiltins = do
     func <- compileFunc macro vals
     return $ [MakeMacro func]
 
+  defmacro "return" $ \vals -> do
+    let argc = S.length vals
+    when (argc /= 1) $
+      throwError $ ArgMismatch 1 argc
+    (S.|> Return) <$> compile (S.index vals 0)
+
   defmacro "def" compileDef
   defmacro "if" compileIf
   defmacro "recur" compileRecur
