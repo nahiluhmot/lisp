@@ -42,12 +42,12 @@ dottedList :: Parser Value
 dottedList =
   fmap (uncurry $ flip (foldr Cons)) .
     between (char '(') (char ')') $
-      (,) <$> values <* spaces <* char  '.' <* spaces
+      (,) <$> values <* spaces <* dot <* spaces
           <*> value <* spaces
 
 symbol :: Parser Value
 symbol = do
-  ((:) <$> (letter <|> allowedSymbol) <*> many (alphaNum <|> allowedSymbol)) >>=
+  ((:) <$> (letter <|> allowedSymbol) <*> many (alphaNum <|> allowedSymbol <|> dot)) >>=
     (lift . M.symbol . pack)
 
 str :: Parser Value
@@ -68,6 +68,9 @@ num = do
 
 ints :: Num a => Parser [a]
 ints = map (fromIntegral . digitToInt) <$> many1 digit
+
+dot :: Parser Char
+dot = char '.'
 
 allowedSymbol :: Parser Char
 allowedSymbol = oneOf "+-*/?!="
