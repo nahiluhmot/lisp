@@ -10,7 +10,7 @@ import Control.Monad.Except
 import Data.Foldable (foldr)
 import Data.Functor
 import Data.Sequence
-import qualified Data.IntMap as M
+import Data.IntMap hiding (foldr)
 
 import Lisp.Data
 import Lisp.Monad
@@ -19,20 +19,22 @@ eval :: Seq Instruction -> LispM Value
 eval insns =
   let evalIndex pc
         | (pc >= length insns) || (pc < 0) = do
-          pop `catchError` \e ->
+          result <- pop `catchError` \e ->
             case e of
               EmptyStack -> return $ Nil
               _ -> throwError e
+          modify $ \state -> state { stack = [] }
+          return result
         | otherwise = evalInstruction pc (index insns pc) >>= evalIndex
-  in evalIndex 0
+  in modify (\state -> state { stack = [] }) >> evalIndex 0
 
 evalInstruction :: Int -> Instruction -> LispM Int
 evalInstruction pc Noop = return $ succ pc
 evalInstruction pc Pop = pop $> succ pc
 evalInstruction pc (Push val) = push val $> succ pc
-evalInstruction pc PushScope = do
+evalInstruction pc PushScope =
   modifyScope $ \scopes ->
-    return $ (succ pc, M.empty <| scopes)
+    return $ (succ pc, [] <| scopes)
 evalInstruction pc PopScope =
   modifyScope $ \scopes ->
     case viewl scopes of
@@ -53,7 +55,7 @@ evalInstruction pc (BranchUnless idx) =
 evalInstruction pc (MakeLambda func) = (gets scope >>= push . Lambda (Right func)) $> succ pc
 evalInstruction pc (MakeMacro macro) = (gets scope >>= push . Macro (Right macro)) $> succ pc
 evalInstruction pc (Funcall argc) = do
-  let defArgs ids args = foldr (uncurry M.insert) M.empty $ zip ids args
+  let defArgs ids args = foldr (uncurry insert) [] $ zip ids args
   (args :> fn) <- fmap viewr . popN $ succ argc
   case fn of
     Lambda (Left (_, run)) _ -> run args >>= push
@@ -68,7 +70,7 @@ evalInstruction pc (Funcall argc) = do
           (GT, Nothing) -> throwError $ ArgMismatch (length ids) (length args)
           (LT, _) -> throwError $ ArgMismatch (length ids) (length args)
       ours <- get
-      put $ ours { scope = currScope <| scope', stack = empty, currentFunc = Just func }
+      put $ ours { scope = currScope <| scope', currentFunc = Just func }
       val <- eval insns
       modify $ \state ->
         state { scope = scope ours
