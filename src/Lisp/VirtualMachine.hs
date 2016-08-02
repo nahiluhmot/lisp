@@ -18,13 +18,11 @@ import Lisp.Monad
 eval :: Seq Instruction -> LispM Value
 eval insns =
   let evalIndex pc
-        | (pc >= length insns) || (pc < 0) = do
-          result <- pop `catchError` \e ->
+        | (pc >= length insns) || (pc < 0) =
+          pop `catchError` \e ->
             case e of
               EmptyStack -> return $ Nil
               _ -> throwError e
-          modify $ \state -> state { stack = [] }
-          return result
         | otherwise = evalInstruction pc (index insns pc) >>= evalIndex
   in modify (\state -> state { stack = [] }) >> evalIndex 0
 
