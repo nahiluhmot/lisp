@@ -71,6 +71,8 @@ data LispError = TypeMismatch Text
                | FullIndex
                | RecurOutsideOfLambda
                | InvalidLet Text
+               | InvalidRecur
+               | InvalidReturn
                deriving (Show)
 
 type LispM = ExceptT LispError (StateT LispState IO)

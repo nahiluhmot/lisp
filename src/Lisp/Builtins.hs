@@ -38,7 +38,7 @@ addBuiltins = do
     let argc = S.length vals
     when (argc /= 1) $
       throwError $ ArgMismatch 1 argc
-    (S.|> Return) <$> compile (S.index vals 0)
+    (S.|> Return) <$> compile' (S.index vals 0)
 
   defmacro "def" compileDef
   defmacro "if" compileIf
@@ -101,11 +101,7 @@ addBuiltins = do
   defun1 "eval" $ \sexp ->
     case toSeq sexp of
       Left _ -> throwError CompileDottedList
-      Right list -> do
-        result <- S.viewr <$> mapM (compile >=> eval) list
-        case result of
-          S.EmptyR -> return Nil
-          (_ S.:> x) -> return x
+      Right list -> F.foldlM (const $ compile >=> eval) Nil list
 
 defmacro :: T.Text -> (S.Seq Value -> LispM (S.Seq Instruction)) -> LispM ()
 defmacro sym func = globalDef' sym $ Macro (Left (sym, func)) []
@@ -154,7 +150,7 @@ compileLet list = do
   let (defs S.:< body) = S.viewl list
       go sexp =
         case toSeq sexp of
-          Right [Symbol id, value] -> (S.|> Set id) <$> compile value
+          Right [Symbol id, value] -> (S.|> Set id) <$> compile' value
           _ -> display sexp >>= throwError . InvalidLet
   case toSeq defs of
     Right conses -> do
@@ -163,10 +159,10 @@ compileLet list = do
     Left _ -> display defs >>= throwError . InvalidLet
 
 compileRecur :: S.Seq Value -> LispM (S.Seq Instruction)
-compileRecur args = (S.|> Recur (S.length args)) <$> compileValues args
+compileRecur args = (S.|> Recur (S.length args)) <$> compileValues' args
 
 compileDef :: S.Seq Value -> LispM (S.Seq Instruction)
-compileDef [Symbol sym, sexp] = (S.|> Def sym) <$> compile sexp
+compileDef [Symbol sym, sexp] = (S.|> Def sym) <$> compile' sexp
 compileDef [_, _] = throwError $ TypeMismatch "symbol"
 compileDef vals = throwError $ ArgMismatch 2 (length vals)
 
@@ -175,7 +171,7 @@ compileIf list
   | S.length list < 2 = throwError $ ArgMismatch 2 (S.length list)
   | otherwise = do
       let ([cond, body], rest) = S.splitAt 2 list
-      cond' <- compile cond
+      cond' <- compile' cond
       body' <- compile body
       rest' <- compileValues rest
       if null rest' then
