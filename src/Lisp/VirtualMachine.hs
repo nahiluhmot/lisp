@@ -55,24 +55,15 @@ evalInstruction pc (BranchUnless idx) =
 evalInstruction pc (MakeLambda func) = (gets scope >>= push . Lambda (Right func)) $> succ pc
 evalInstruction pc (MakeMacro macro) = (gets scope >>= push . Macro (Right macro)) $> succ pc
 evalInstruction pc (Funcall argc) = do
-  let defArgs ids args = foldr (uncurry insert) [] $ zip ids args
   (args :> fn) <- fmap viewr . popN $ succ argc
   case fn of
     Lambda (Left (_, run)) _ -> run args >>= push
     Lambda (Right func@(CompiledFunction insns ids extra _)) scope' -> do
-      currScope <-
-        case (length args `compare` length ids, extra) of
-          (EQ, Nothing) -> return $ defArgs ids args
-          (EQ, Just id) -> return $ defArgs (ids |> id) (args |> Nil)
-          (GT, Just id) ->
-            let (args', rest) = splitAt (length ids) args
-            in  return $ defArgs (ids |> id) (args' |> foldr Cons Nil rest)
-          (GT, Nothing) -> throwError $ ArgMismatch (length ids) (length args)
-          (LT, _) -> throwError $ ArgMismatch (length ids) (length args)
+      currScope <- foldr (uncurry insert) [] <$> matchArgs ids extra args
       ours <- get
       put $ ours { scope = currScope <| scope', currentFunc = Just func }
       val <- eval insns
-      modify $ \state ->
+      modify $ \state->
         state { scope = scope ours
               , stack = val <| stack ours
               , currentFunc = currentFunc ours
@@ -81,16 +72,9 @@ evalInstruction pc (Funcall argc) = do
   return $ succ pc
 evalInstruction _ Return = return (-1)
 evalInstruction _ (Recur argc) = do
-  let defArgs ids args = localDef' $ zip ids args
   result <- gets currentFunc
   (CompiledFunction _ ids extra _) <- maybe (throwError RecurOutsideOfLambda) return result
   args <- popN argc
-  case (length args `compare` length ids, extra) of
-    (EQ, Nothing) -> defArgs ids args
-    (EQ, Just id) -> defArgs (ids |> id) (args |> Nil)
-    (GT, Just id) ->
-      let (args', rest) = splitAt (length ids) args
-      in  defArgs (ids |> id) (args' |> foldr Cons Nil rest)
-    (GT, Nothing) -> throwError $ ArgMismatch (length ids) (length args)
-    (LT, _) -> throwError $ ArgMismatch (length ids) (length args)
+  matched <- matchArgs ids extra args
+  localDef' matched
   return 0
