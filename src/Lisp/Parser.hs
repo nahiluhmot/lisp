@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Lisp.Parser where
 
 import Control.Monad.State hiding (state)
@@ -33,7 +35,8 @@ value = choice $ map try [ num
                          ]
 
 quoted :: Parser Value
-quoted = Quote <$> (char '\'' *> spaces *> value)
+quoted = Cons <$> lift (M.symbol "quote")
+              <*> (Cons <$> (char '\'' *> spaces *> value) <*> pure Nil)
 
 list :: Parser Value
 list = foldr Cons Nil <$> between (char '(')  (char ')') values
