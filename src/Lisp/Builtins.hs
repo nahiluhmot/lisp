@@ -8,7 +8,7 @@ import Prelude hiding (id)
 import Control.Monad.Except
 import qualified Data.Foldable as F
 import Data.Functor
-import qualified Data.Sequence as S
+import Data.Sequence as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as IO
 
@@ -38,7 +38,7 @@ addBuiltins = do
     let argc = S.length vals
     when (argc /= 1) $
       throwError $ ArgMismatch 1 argc
-    (S.|> Return) <$> compile' (S.index vals 0)
+    (|> Return) <$> compile' (index vals 0)
 
   defmacro "def" compileDef
   defmacro "if" compileIf
@@ -103,10 +103,10 @@ addBuiltins = do
       Left _ -> throwError CompileDottedList
       Right list -> F.foldlM (const $ compile >=> eval) Nil list
 
-defmacro :: T.Text -> (S.Seq Value -> LispM (S.Seq Instruction)) -> LispM ()
+defmacro :: T.Text -> (Seq Value -> LispM (Seq Instruction)) -> LispM ()
 defmacro sym func = globalDef' sym $ Macro (Left (sym, func)) []
 
-defun :: T.Text -> (S.Seq Value -> LispM Value) -> LispM ()
+defun :: T.Text -> (Seq Value -> LispM Value) -> LispM ()
 defun sym func = globalDef' sym $ Lambda (Left (sym, func)) []
 
 defun0 :: T.Text -> LispM Value -> LispM ()
@@ -116,20 +116,20 @@ defun0 sym func =
     func
 
 defun1 :: T.Text -> (Value -> LispM Value) -> LispM ()
-defun1 sym func = defunN 1 sym $ func . flip S.index 0
+defun1 sym func = defunN 1 sym $ func . flip index 0
 
-defunN :: Int -> T.Text -> (S.Seq Value -> LispM Value) -> LispM ()
+defunN :: Int -> T.Text -> (Seq Value -> LispM Value) -> LispM ()
 defunN n sym func =
   defun sym $ \args -> do
     when (S.length args /= n) $ throwError $ ArgMismatch n (S.length args)
     func args
 
-compileFunc :: Value -> S.Seq Value -> LispM CompiledFunction
+compileFunc :: Value -> Seq Value -> LispM CompiledFunction
 compileFunc sym list = do
   let namesToIDs = mapM toSymbolID
-  case S.viewl list of
-    S.EmptyL -> throwError $ ArgMismatch 1 0
-    (args S.:< body) -> do
+  case viewl list of
+    EmptyL -> throwError $ ArgMismatch 1 0
+    (args :< body) -> do
       (ids, extra) <-
         case toSeq args of
           (Left (xs, x)) -> (,) <$> namesToIDs xs <*> (Just <$> toSymbolID x)
@@ -141,40 +141,39 @@ compileFunc sym list = do
                                 , source = Cons sym $ foldr Cons Nil list
                                 }
 
-compileLet :: S.Seq Value -> LispM (S.Seq Instruction)
+compileLet :: Seq Value -> LispM (Seq Instruction)
 compileLet list = do
   when (S.null list) $ throwError $ ArgMismatch 2 0
-  let (defs S.:< body) = S.viewl list
+  let (defs :< body) = viewl list
       go sexp =
         case toSeq sexp of
-          Right [Symbol id, value] -> (S.|> Set id) <$> compile' value
+          Right [Symbol id, value] -> (|> Set id) <$> compile' value
           _ -> display sexp >>= throwError . InvalidLet
   case toSeq defs of
     Right conses -> do
       bodyInsns <- compileValues body
-      (PushScope S.<|) <$> F.foldrM (\def acc -> (S.>< acc) <$> go def) (bodyInsns S.|> PopScope) conses
+      (PushScope <|) <$> F.foldrM (\def acc -> (>< acc) <$> go def) (bodyInsns |> PopScope) conses
     Left _ -> display defs >>= throwError . InvalidLet
 
-compileRecur :: S.Seq Value -> LispM (S.Seq Instruction)
-compileRecur args = (S.|> Recur (S.length args)) <$> compileValues' args
+compileRecur :: Seq Value -> LispM (Seq Instruction)
+compileRecur args = (|> Recur (S.length args)) <$> compileValues' args
 
-compileDef :: S.Seq Value -> LispM (S.Seq Instruction)
-compileDef [Symbol sym, sexp] = (S.|> Def sym) <$> compile' sexp
+compileDef :: Seq Value -> LispM (Seq Instruction)
+compileDef [Symbol sym, sexp] = (|> Def sym) <$> compile' sexp
 compileDef [_, _] = throwError $ TypeMismatch "symbol"
-compileDef vals = throwError $ ArgMismatch 2 (length vals)
+compileDef vals = throwError $ ArgMismatch 2 (S.length vals)
 
-compileIf :: S.Seq Value -> LispM (S.Seq Instruction)
+compileIf :: Seq Value -> LispM (Seq Instruction)
 compileIf list
   | S.length list < 2 = throwError $ ArgMismatch 2 (S.length list)
   | otherwise = do
       let ([cond, body], rest) = S.splitAt 2 list
-      cond' <- compile' cond
-      body' <- compile body
-      rest' <- compileValues rest
-      if null rest' then
-        return $ cond' S.>< (BranchUnless (2 + S.length body') S.<| body')
-      else
-        return $ cond' S.>< ((BranchUnless (2 + S.length body') S.<| body') S.>< (Jump (2 + S.length rest') S.<| rest'))
+      condition <- compile' cond
+      thenCase <- compile body
+      elseCase <- compileValues rest
+      return $ (condition |> BranchUnless (2 + S.length thenCase))
+            >< (thenCase |> Jump (succ $ S.length elseCase))
+            >< elseCase
 
 toSymbolID :: Value -> LispM Int
 toSymbolID (Symbol id) = return id

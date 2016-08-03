@@ -4,13 +4,11 @@
 {-# LANGUAGE OverloadedLists #-}
 module Lisp.VirtualMachine (eval) where
 
-import Prelude hiding (foldr, id, length, splitAt, zip)
-import Control.Monad.State hiding (state)
+import Control.Monad.State
 import Control.Monad.Except
-import Data.Foldable (foldr)
 import Data.Functor
-import Data.Sequence
-import Data.IntMap hiding (foldr)
+import Data.Sequence as S
+import Data.IntMap (insert)
 
 import Lisp.Data
 import Lisp.Monad
@@ -18,13 +16,13 @@ import Lisp.Monad
 eval :: Seq Instruction -> LispM Value
 eval insns =
   let evalIndex pc
-        | (pc >= length insns) || (pc < 0) =
+        | (pc >= S.length insns) || (pc < 0) =
           pop `catchError` \e ->
             case e of
               EmptyStack -> return $ Nil
               _ -> throwError e
         | otherwise = evalInstruction pc (index insns pc) >>= evalIndex
-  in modify (\state -> state { stack = [] }) >> evalIndex 0
+  in modify (\curr -> curr { stack = [] }) >> evalIndex 0
 
 evalInstruction :: Int -> Instruction -> LispM Int
 evalInstruction pc Noop = return $ succ pc
@@ -61,11 +59,11 @@ evalInstruction pc (Funcall argc) = do
       ours <- get
       put $ ours { scope = currScope <| scope', currentFunc = Just func }
       val <- eval insns
-      modify $ \state->
-        state { scope = scope ours
-              , stack = val <| stack ours
-              , currentFunc = currentFunc ours
-              }
+      modify $ \curr->
+        curr { scope = scope ours
+             , stack = val <| stack ours
+             , currentFunc = currentFunc ours
+             }
     _ -> throwError $ TypeMismatch "lambda"
   return $ succ pc
 evalInstruction _ Return = return (-1)

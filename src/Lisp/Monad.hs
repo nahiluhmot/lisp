@@ -70,8 +70,8 @@ popN int =
   let go 0 before after = return (before, after)
       go _ _ [] = throwError EmptyStack
       go n before after =
-        let (val S.:< after') = viewl after
-        in  go (pred n) (val S.<| before) after'
+        let (val :< after') = viewl after
+        in  go (pred n) (val <| before) after'
   in  modifyStack $ go int []
 
 localDef :: Int -> Value -> LispM ()
