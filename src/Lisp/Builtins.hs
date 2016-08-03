@@ -44,6 +44,7 @@ addBuiltins = do
   defmacro "if" compileIf
   defmacro "recur" compileRecur
   defmacro "let" compileLet
+  defmacro "quote" compileQuote
 
   defunN 2 "+" $ \[a, b] ->
     case (a, b) of
@@ -126,13 +127,13 @@ defunN n sym func =
 
 compileFunc :: Value -> Seq Value -> LispM CompiledFunction
 compileFunc sym list = do
-  let namesToIDs = mapM toSymbolID
+  let namesToIDs = mapM unSymbol
   case viewl list of
     EmptyL -> throwError $ ArgMismatch 1 0
     (args :< body) -> do
       (ids, extra) <-
         case toSeq args of
-          (Left (xs, x)) -> (,) <$> namesToIDs xs <*> (Just <$> toSymbolID x)
+          (Left (xs, x)) -> (,) <$> namesToIDs xs <*> (Just <$> unSymbol x)
           (Right xs) -> (, Nothing) <$> namesToIDs xs
       insns <- compileValues body
       return $ CompiledFunction { instructions = insns
@@ -175,9 +176,21 @@ compileIf list
             >< (thenCase |> Jump (succ $ S.length elseCase))
             >< elseCase
 
-toSymbolID :: Value -> LispM Int
-toSymbolID (Symbol id) = return id
-toSymbolID _ = throwError $ TypeMismatch "symbol"
+compileQuote :: Seq Value -> LispM (Seq Instruction)
+compileQuote [val] =
+  let go quote cons@(Cons car cdr)
+        | car /= quote = return cons
+        | otherwise =
+          case toSeq cdr of
+            Right [curr] -> Quote <$> go quote curr
+            _ -> return cons
+      go _ curr = return curr
+  in  symbol "quote" >>= flip go val >>= \quoted -> return [Push quoted]
+compileQuote list = throwError $ ArgMismatch 2 (S.length list)
+
+unSymbol :: Value -> LispM Int
+unSymbol (Symbol id) = return id
+unSymbol _ = throwError $ TypeMismatch "symbol"
 
 typeOf :: Value -> LispM Value
 typeOf Nil = symbol "nil"
