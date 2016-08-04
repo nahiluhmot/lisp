@@ -20,7 +20,7 @@ printVal :: Value -> LispM ()
 printVal = liftIO . IO.putStrLn <=< display
 
 display :: Value -> LispM Text
-display Nil = return "nil"
+display Nil = return "()"
 display (Number val)
   | denominator val == 1 = return . pack . show $ numerator val
   | otherwise = return . pack . show $ (fromRat val :: Double)
