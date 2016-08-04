@@ -10,7 +10,6 @@ import Control.Monad.Except
 import qualified Data.Foldable as F
 import Data.Functor
 import Data.Sequence as S
-import qualified Data.Text as T
 import qualified Data.Text.IO as IO
 
 import Lisp.Data
@@ -35,67 +34,67 @@ addBuiltins = do
     func <- compileFunc macro vals
     return $ [MakeMacro func]
 
-  defmacro "return" $ \vals -> do
-    let argc = S.length vals
-    when (argc /= 1) $
-      throwError $ ArgMismatch 1 argc
-    (|> Return) <$> compile' (index vals 0)
+  defmacro1 "return" $ \val -> (|> Return) <$> compile' val
 
-  defmacro "def" compileDef
+  defmacro2 "def" $ \name val ->
+    case name of
+      Symbol sym -> (|> Def sym) <$> compile' val
+      _ -> throwError $ TypeMismatch "symbol"
+
   defmacro "if" compileIf
   defmacro "recur" compileRecur
   defmacro "let" compileLet
-  defmacro "quote" compileQuote
-  defmacro "syntax-quote" compileSyntaxQuote
+  defmacro1 "quote" compileQuote
+  defmacro1 "syntax-quote" compileSyntaxQuote
 
-  defunN 2 "+" $ \[a, b] ->
+  defun2 "+" $ \a b ->
     case (a, b) of
       (Number x, Number y) -> return . Number $ x + y
       _ -> throwError $ TypeMismatch "number"
 
-  defunN 2 "-" $ \[a, b] ->
+  defun2 "-" $ \a b ->
     case (a, b) of
       (Number x, Number y) -> return . Number $ x - y
       _ -> throwError $ TypeMismatch "number"
 
-  defunN 2 "*" $ \[a, b] ->
+  defun2 "*" $ \a b ->
     case (a, b) of
       (Number x, Number y) -> return . Number $ x * y
       _ -> throwError $ TypeMismatch "number"
 
-  defunN 2 "/" $ \[a, b] ->
+  defun2 "/" $ \a b ->
     case (a, b) of
       (Number x, Number y) -> return . Number $ x / y
       _ -> throwError $ TypeMismatch "number"
 
-  defunN 2 "==" $ \[a, b] ->
+  defun2 "==" $ \a b ->
     if a == b then symbol "t" else return Nil
 
-  defunN 2 "!=" $ \[a, b] ->
+  defun2 "!=" $ \a b ->
     if a == b then return Nil else symbol "t"
 
-  defunN 2 ">=" $ \[a, b] ->
+  defun2 ">=" $ \a b ->
     case (a, b) of
       (Number x, Number y)
         | x >= y -> symbol "t"
         | otherwise -> return Nil
       _ -> throwError $ TypeMismatch "number"
 
-  defunN 2 "<=" $ \[a, b] ->
+  defun2 "<=" $ \a b ->
     case (a, b) of
       (Number x, Number y)
         | x <= y -> symbol "t"
         | otherwise -> return Nil
       _ -> throwError $ TypeMismatch "number"
 
-  defunN 2 ">" $ \[a, b] ->
+  defun2 ">" $ \a b ->
     case (a, b) of
       (Number x, Number y)
         | x > y -> symbol "t"
         | otherwise -> return Nil
       _ -> throwError $ TypeMismatch "number"
 
-  defunN 2 "<" $ \[a, b] ->
+  defun2 "<" $ \a b ->
     case (a, b) of
       (Number x, Number y)
         | x < y -> symbol "t"
@@ -105,7 +104,7 @@ addBuiltins = do
   defun1 "not" $ \arg ->
     if arg == Nil then symbol "t" else return Nil
 
-  defunN 2 "cons" $ \[a, b] ->
+  defun2 "cons" $ \a b ->
     case b of
       Nil -> return $ List a []
       List first rest -> return $ list (a <| first <| rest)
@@ -137,7 +136,7 @@ addBuiltins = do
     let (rest S.:> final) = viewr args
     return $ dottedList rest final
 
-  defunN 2 "append" $ \[first, rest] ->
+  defun2 "append" $ \first rest ->
     case (first, rest) of
       (List val vals, List val' vals') ->
         return $ List val (vals >< (val' <| vals'))
@@ -161,27 +160,6 @@ addBuiltins = do
     case toSeq sexp of
       Left _ -> throwError CompileDottedList
       Right vs -> F.foldlM (const $ compile >=> eval) Nil vs
-
-defmacro :: T.Text -> (Seq Value -> LispM (Seq Instruction)) -> LispM ()
-defmacro sym func = globalDef' sym $ Macro (Left (sym, func)) []
-
-defun :: T.Text -> (Seq Value -> LispM Value) -> LispM ()
-defun sym func = globalDef' sym $ Lambda (Left (sym, func)) []
-
-defun0 :: T.Text -> LispM Value -> LispM ()
-defun0 sym func =
-  defun sym $ \args -> do
-    when (not $ S.null args) $ throwError $ ArgMismatch 0 (S.length args)
-    func
-
-defun1 :: T.Text -> (Value -> LispM Value) -> LispM ()
-defun1 sym func = defunN 1 sym $ func . flip index 0
-
-defunN :: Int -> T.Text -> (Seq Value -> LispM Value) -> LispM ()
-defunN n sym func =
-  defun sym $ \args -> do
-    when (S.length args /= n) $ throwError $ ArgMismatch n (S.length args)
-    func args
 
 compileFunc :: Value -> Seq Value -> LispM CompiledFunction
 compileFunc sym vals = do
@@ -217,11 +195,6 @@ compileLet vals = do
 compileRecur :: Seq Value -> LispM (Seq Instruction)
 compileRecur args = (|> Recur (S.length args)) <$> compileValues' args
 
-compileDef :: Seq Value -> LispM (Seq Instruction)
-compileDef [Symbol sym, sexp] = (|> Def sym) <$> compile' sexp
-compileDef [_, _] = throwError $ TypeMismatch "symbol"
-compileDef vals = throwError $ ArgMismatch 2 (S.length vals)
-
 compileIf :: Seq Value -> LispM (Seq Instruction)
 compileIf vals
   | S.length vals < 2 = throwError $ ArgMismatch 2 (S.length vals)
@@ -234,9 +207,8 @@ compileIf vals
             >< (thenCase |> Jump (succ $ S.length elseCase))
             >< elseCase
 
-compileQuote :: Seq Value -> LispM (Seq Instruction)
-compileQuote [val] = S.singleton . Push <$> compileQuote' val
-compileQuote vals = throwError $ ArgMismatch 1 (S.length vals)
+compileQuote :: Value -> LispM (Seq Instruction)
+compileQuote val = S.singleton . Push <$> compileQuote' val
 
 compileQuote' :: Value -> LispM Value
 compileQuote' val = do
@@ -247,8 +219,8 @@ compileQuote' val = do
       go curr = return curr
   go val
 
-compileSyntaxQuote :: Seq Value -> LispM (Seq Instruction)
-compileSyntaxQuote [arg] = do
+compileSyntaxQuote :: Value -> LispM (Seq Instruction)
+compileSyntaxQuote arg = do
   unquote <- symbol "unquote"
   splat <- symbol "unquote-splat"
   cons <- symToID "cons"
@@ -268,7 +240,7 @@ compileSyntaxQuote [arg] = do
         first <- mapM go (car <| cdr)
         rest <- go last
         F.foldrM combine rest first
-      go val = Right <$> compileQuote [val]
+      go val = Right <$> compileQuote val
       combine (Right car') (Right cdr') =
         return . Right $ Get cons <| ((car' >< cdr') |> Funcall 2)
       combine (Left car') (Right cdr') =
@@ -279,7 +251,6 @@ compileSyntaxQuote [arg] = do
   case result of
     Right insns -> return insns
     Left _ -> throwError $ InvalidSyntaxQuote "Cannot unquote-splat outside of cons"
-compileSyntaxQuote vals = throwError $ ArgMismatch 1 (S.length vals)
 
 unSymbol :: Value -> LispM Int
 unSymbol (Symbol id) = return id
