@@ -187,18 +187,19 @@ compileIf list
 
 compileQuote :: Seq Value -> LispM (Seq Instruction)
 compileQuote [val] = (S.singleton . Push) <$> compileQuote' val
-compileQuote list = throwError $ ArgMismatch 2 (S.length list)
+compileQuote list = throwError $ ArgMismatch 1 (S.length list)
 
 compileQuote' :: Value -> LispM Value
-compileQuote' val =
-  let go quote cons@(Cons car cdr)
+compileQuote' val = do
+  quote <- symbol "quote"
+  let go cons@(Cons car cdr)
         | car /= quote = return cons
         | otherwise =
           case toSeq cdr of
-            Right [curr] -> Quote <$> go quote curr
+            Right [curr] -> Quote <$> go curr
             _ -> return cons
-      go _ curr = return curr
-  in  symbol "quote" >>= flip go val
+      go curr = return curr
+  go val
 
 compileSyntaxQuote :: Seq Value -> LispM (Seq Instruction)
 compileSyntaxQuote [arg] = do
