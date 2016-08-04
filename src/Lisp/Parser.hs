@@ -16,26 +16,26 @@ import qualified Lisp.Monad as M
 type Parser = ParsecT Text Bool LispM
 
 parse :: Text -> LispM (Seq Value)
-parse input = do
-  result <- runParserT (values <* eof) False "*repl*" input
-  case result of
-    Left err -> throwError $ ParseError err
-    Right val -> return val
+parse input = runParserT (values <* eof) False "*repl*" input
+          >>= either (throwError . ParseError) return
 
 values :: Parser (Seq Value)
 values = fromList <$> (spaces *> many (value <* spaces))
 
 value :: Parser Value
-value = choice $ map try [ num
-                         , symbol
-                         , list
-                         , str
-                         , quoted
-                         , dottedList
-                         , syntaxQuoted
-                         , syntaxUnquoted
-                         , syntaxSplatted
-                         ]
+value = choice $ map try parsers
+
+parsers :: [Parser Value]
+parsers = [ num
+          , symbol
+          , list
+          , str
+          , quoted
+          , dottedList
+          , syntaxQuoted
+          , syntaxUnquoted
+          , syntaxSplatted
+          ]
 
 syntaxQuoted :: Parser Value
 syntaxQuoted = do
