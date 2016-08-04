@@ -13,11 +13,11 @@ import Text.Parsec as P
 import Lisp.Data
 import qualified Lisp.Monad as M
 
-type Parser = ParsecT Text () LispM
+type Parser = ParsecT Text Bool LispM
 
 parse :: Text -> LispM (Seq Value)
 parse input = do
-  result <- runParserT (values <* eof) () "*repl*" input
+  result <- runParserT (values <* eof) False "*repl*" input
   case result of
     Left err -> throwError $ ParseError err
     Right val -> return val
@@ -32,7 +32,34 @@ value = choice $ map try [ num
                          , str
                          , quoted
                          , dottedList
+                         , syntaxQuoted
+                         , syntaxUnquoted
+                         , syntaxSplatted
                          ]
+
+syntaxQuoted :: Parser Value
+syntaxQuoted = do
+  inSyntaxQuoted <- getState
+  when inSyntaxQuoted $ parserFail "Nested syntax quotes unsupported"
+  parsed <- char '`' *> spaces *> putState True *> value <* putState False
+  syntaxQuote <- lift $ M.symbol "syntax-quote"
+  return $ Cons syntaxQuote (Cons parsed Nil)
+
+syntaxUnquoted :: Parser Value
+syntaxUnquoted = do
+  isSyntaxQuoted <- getState
+  unless isSyntaxQuoted $ parserFail "Cannot unquote outside of syntax quote"
+  Cons <$> (lift $ M.symbol "unquote")
+       <*> (Cons <$> (char ',' *> spaces *> putState False *> value <* putState True)
+                 <*> pure Nil)
+
+syntaxSplatted :: Parser Value
+syntaxSplatted = do
+  isSyntaxQuoted <- getState
+  unless isSyntaxQuoted $ parserFail "Cannot unquote-splat outside of syntax quote"
+  Cons <$> (lift $ M.symbol "unquote-splat")
+       <*> (Cons <$> (string ",@" *> spaces *> putState False *> value <* putState True)
+                 <*> pure Nil)
 
 quoted :: Parser Value
 quoted = Cons <$> lift (M.symbol "quote")
