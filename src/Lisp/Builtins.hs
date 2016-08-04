@@ -68,11 +68,39 @@ addBuiltins = do
       (Number x, Number y) -> return . Number $ x / y
       _ -> throwError $ TypeMismatch "number"
 
-  defunN 2 "eq" $ \[a, b] ->
+  defunN 2 "==" $ \[a, b] ->
     if a == b then symbol "t" else return Nil
 
-  defunN 2 "neq" $ \[a, b] ->
+  defunN 2 "!=" $ \[a, b] ->
     if a == b then return Nil else symbol "t"
+
+  defunN 2 ">=" $ \[a, b] ->
+    case (a, b) of
+      (Number x, Number y)
+        | x >= y -> symbol "t"
+        | otherwise -> return Nil
+      _ -> throwError $ TypeMismatch "number"
+
+  defunN 2 "<=" $ \[a, b] ->
+    case (a, b) of
+      (Number x, Number y)
+        | x <= y -> symbol "t"
+        | otherwise -> return Nil
+      _ -> throwError $ TypeMismatch "number"
+
+  defunN 2 ">" $ \[a, b] ->
+    case (a, b) of
+      (Number x, Number y)
+        | x > y -> symbol "t"
+        | otherwise -> return Nil
+      _ -> throwError $ TypeMismatch "number"
+
+  defunN 2 "<" $ \[a, b] ->
+    case (a, b) of
+      (Number x, Number y)
+        | x < y -> symbol "t"
+        | otherwise -> return Nil
+      _ -> throwError $ TypeMismatch "number"
 
   defun1 "not" $ \arg ->
     if arg == Nil then symbol "t" else return Nil
