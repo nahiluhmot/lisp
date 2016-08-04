@@ -5,9 +5,10 @@ module Lisp.Helpers where
 
 import Prelude hiding (id)
 import Control.Monad.Except
+import qualified Data.Foldable as F
 import Data.Monoid
 import Data.Ratio
-import qualified Data.Foldable as F
+import Data.Sequence
 import Numeric (fromRat)
 
 import Data.Text
@@ -27,15 +28,13 @@ display (Number val)
 display (Symbol id) = idToSym id
 display (String str)  = return $ "\"" <> str <> "\""
 display (Quote val)  = (mappend "'") <$> display val
-display c@(Cons _ _)  =
-  case toSeq c of
-    Right xs -> do
-      texts <- mapM display (F.toList xs)
-      return $ "(" <> intercalate " " texts <> ")"
-    Left (xs, x) -> do
-      texts <- mapM display (F.toList xs)
-      text <- display x
-      return $ "(" <> intercalate " " texts <> " . " <> text <> ")"
+display (List x xs)  = do
+  texts <- mapM display . F.toList $ x <| xs
+  return $ "(" <> intercalate " " texts <> ")"
+display (DottedList x xs y) = do
+  texts <- mapM display . F.toList $ x <| xs
+  text <- display y
+  return $ "(" <> intercalate " " texts <> " . " <> text <> ")"
 display (Lambda (Left (n, _)) _) = do
   return $ "#<native function: " <> n <> ">"
 display (Lambda (Right (CompiledFunction _ _ _ src)) _) = do

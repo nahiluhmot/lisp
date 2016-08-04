@@ -22,8 +22,8 @@ compile :: Value -> LispM (Seq Instruction)
 compile Nil = return [Push Nil]
 compile (Symbol id) = return [Get id]
 compile (Quote lit) = return [Push lit]
-compile cons@(Cons _ _) = either (const $ throwError CompileDottedList) (return . viewl) (toSeq cons)
-                      >>= \(fn :< args) -> compileFuncall fn args
+compile (List fn args) = compileFuncall fn args
+compile (DottedList _ _ _) = throwError $ CompileDottedList
 compile lit = return [Push lit]
 
 compileValues :: Seq Value -> LispM (Seq Instruction)
@@ -41,8 +41,8 @@ compileValues' :: Seq Value -> LispM (Seq Instruction)
 compileValues' = concatM compile'
 
 compileFuncall :: Value -> Seq Value -> LispM (Seq Instruction)
-compileFuncall cons@(Cons _ _) args =
-  fmap (|> Funcall (length args)) $ (><) <$> compile cons <*> compileValues args
+compileFuncall fn@(List _ _) args =
+  fmap (|> Funcall (length args)) $ (><) <$> compile fn <*> compileValues args
 compileFuncall (Symbol fn) args =
   let macroExpand (Macro (Left (_, native)) _) = Just $ native args
       macroExpand (Macro (Right compiled) scopeIDs) =

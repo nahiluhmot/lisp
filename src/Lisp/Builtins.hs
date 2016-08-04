@@ -1,10 +1,11 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE TupleSections #-}
 
 module Lisp.Builtins (addBuiltins) where
 
-import Prelude hiding (id)
+import Prelude hiding (id, last)
 import Control.Monad.Except
 import qualified Data.Foldable as F
 import Data.Functor
@@ -76,27 +77,47 @@ addBuiltins = do
   defun1 "not" $ \arg ->
     if arg == Nil then symbol "t" else return Nil
 
-  defunN 2 "cons" $ \[a, b] -> return $ Cons a b
+  defunN 2 "cons" $ \[a, b] ->
+    case b of
+      Nil -> return $ List a []
+      List first rest -> return $ list (a <| first <| rest)
+      DottedList first rest final -> return $ dottedList (a <| first <| rest) final
+      _ -> return $ DottedList a [] b
 
-  defun1 "car" $ \sexp ->
+  defun1 "first" $ \sexp -> do
     case sexp of
-      (Cons car _) -> return car
+      (List x _) -> return x
+      (DottedList x _ _) -> return x
       _ -> throwError $ TypeMismatch "cons"
 
-  defun1 "cdr" $ \sexp ->
+  defun1 "rest" $ \sexp ->
     case sexp of
-      (Cons _ cdr) -> return cdr
+      (List _ xs) ->
+        case viewl xs of
+          EmptyL -> return Nil
+          (first :< rest) -> return $ List first rest
+      (DottedList _ xs x) ->
+        case viewl xs of
+          EmptyL -> return x
+          (first :< rest) -> return $ DottedList first rest x
       _ -> throwError $ TypeMismatch "cons"
 
-  defun "list" $ return . foldr Cons Nil
+  defun "list" $ return . list
+
   defun "dotted-list" $ \args -> do
     when (S.length args < 2) $ throwError $ ArgMismatch 2 0
     let (rest S.:> final) = viewr args
-    return $ foldr Cons final rest
+    return $ dottedList rest final
+
   defunN 2 "append" $ \[first, rest] ->
-    case toSeq first of
-      Right vals -> return $ foldr Cons rest vals
-      Left _ -> throwError $ TypeMismatch "list"
+    case (first, rest) of
+      (List val vals, List val' vals') ->
+        return $ List val (vals >< (val' <| vals'))
+      (List val vals, DottedList val' vals' last) ->
+        return $ DottedList val (vals >< (val' <| vals')) last
+      (List val vals, Nil) -> return $ List val vals
+      (List val vals, val') -> return $ DottedList val vals val'
+      _ -> throwError $ TypeMismatch "list"
 
   defun1 "type-of" typeOf
 
@@ -105,13 +126,13 @@ addBuiltins = do
 
   defun1 "read" $ \sexp ->
     case sexp of
-      (String text) -> foldr Cons Nil <$> parse text
+      (String text) -> list <$> parse text
       _ -> throwError $ TypeMismatch "string"
 
   defun1 "eval" $ \sexp ->
     case toSeq sexp of
       Left _ -> throwError CompileDottedList
-      Right list -> F.foldlM (const $ compile >=> eval) Nil list
+      Right vs -> F.foldlM (const $ compile >=> eval) Nil vs
 
 defmacro :: T.Text -> (Seq Value -> LispM (Seq Instruction)) -> LispM ()
 defmacro sym func = globalDef' sym $ Macro (Left (sym, func)) []
@@ -135,9 +156,9 @@ defunN n sym func =
     func args
 
 compileFunc :: Value -> Seq Value -> LispM CompiledFunction
-compileFunc sym list = do
+compileFunc sym vals = do
   let namesToIDs = mapM unSymbol
-  case viewl list of
+  case viewl vals of
     EmptyL -> throwError $ ArgMismatch 1 0
     (args :< body) -> do
       (ids, extra) <-
@@ -148,13 +169,13 @@ compileFunc sym list = do
       return $ CompiledFunction { instructions = insns
                                 , argIDs = ids
                                 , extraArgsID = extra
-                                , source = Cons sym $ foldr Cons Nil list
+                                , source = List sym vals
                                 }
 
 compileLet :: Seq Value -> LispM (Seq Instruction)
-compileLet list = do
-  when (S.null list) $ throwError $ ArgMismatch 2 0
-  let (defs :< body) = viewl list
+compileLet vals = do
+  when (S.null vals) $ throwError $ ArgMismatch 2 0
+  let (defs :< body) = viewl vals
       go sexp =
         case toSeq sexp of
           Right [Symbol id, value] -> (|> Set id) <$> compile' value
@@ -174,10 +195,10 @@ compileDef [_, _] = throwError $ TypeMismatch "symbol"
 compileDef vals = throwError $ ArgMismatch 2 (S.length vals)
 
 compileIf :: Seq Value -> LispM (Seq Instruction)
-compileIf list
-  | S.length list < 2 = throwError $ ArgMismatch 2 (S.length list)
+compileIf vals
+  | S.length vals < 2 = throwError $ ArgMismatch 2 (S.length vals)
   | otherwise = do
-      let ([cond, body], rest) = S.splitAt 2 list
+      let ([cond, body], rest) = S.splitAt 2 vals
       condition <- compile' cond
       thenCase <- compile body
       elseCase <- compileValues rest
@@ -186,18 +207,15 @@ compileIf list
             >< elseCase
 
 compileQuote :: Seq Value -> LispM (Seq Instruction)
-compileQuote [val] = (S.singleton . Push) <$> compileQuote' val
-compileQuote list = throwError $ ArgMismatch 1 (S.length list)
+compileQuote [val] = S.singleton . Push <$> compileQuote' val
+compileQuote vals = throwError $ ArgMismatch 1 (S.length vals)
 
 compileQuote' :: Value -> LispM Value
 compileQuote' val = do
   quote <- symbol "quote"
-  let go cons@(Cons car cdr)
-        | car /= quote = return cons
-        | otherwise =
-          case toSeq cdr of
-            Right [curr] -> Quote <$> go curr
-            _ -> return cons
+  let go vals@(List car cdr)
+        | (car /= quote) && (S.length cdr /= 1) = return vals
+        | S.length cdr == 1 = Quote <$> go (S.index cdr 0)
       go curr = return curr
   go val
 
@@ -207,31 +225,33 @@ compileSyntaxQuote [arg] = do
   splat <- symbol "unquote-splat"
   cons <- symToID "cons"
   append <- symToID "append"
-  let go (Cons car cdr)
+  let go (List car cdr)
         | car == unquote =
-          case toSeq cdr of
-            Right [val] -> Right <$> compile val
+          case cdr of
+            [val] -> Right <$> compile val
             _ -> recur
         | car == splat =
-          case toSeq cdr of
-            Right [val] -> Left <$> compile val
+          case cdr of
+            [val] -> Left <$> compile val
             _ -> recur
         | otherwise = recur
-        where recur = do
-                result <- go car
-                result' <- go cdr
-                case (result, result') of
-                  (Right car', Right cdr') ->
-                    return . Right $ Get cons <| ((car' >< cdr') |> Funcall 2)
-                  (Left car', Right cdr') ->
-                    return . Right $ Get append <| ((car' >< cdr') |> Funcall 2)
-                  (_, Left _) -> throwError $ InvalidSyntaxQuote "Cannot unquote-splat in cdr postion"
+        where recur = mapM go (car <| cdr) >>= F.foldrM combine (Right [Push Nil])
+      go (DottedList car cdr last) = do
+        first <- mapM go (car <| cdr)
+        rest <- go last
+        F.foldrM combine rest first
       go val = Right <$> compileQuote [val]
+      combine (Right car') (Right cdr') =
+        return . Right $ Get cons <| ((car' >< cdr') |> Funcall 2)
+      combine (Left car') (Right cdr') =
+        return . Right $ Get append <| ((car' >< cdr') |> Funcall 2)
+      combine _ _ =
+        throwError $ InvalidSyntaxQuote "Cannot unquote-splat in cdr postion"
   result <- go arg
   case result of
     Right insns -> return insns
     Left _ -> throwError $ InvalidSyntaxQuote "Cannot unquote-splat outside of cons"
-compileSyntaxQuote list = throwError $ ArgMismatch 1 (S.length list)
+compileSyntaxQuote vals = throwError $ ArgMismatch 1 (S.length vals)
 
 unSymbol :: Value -> LispM Int
 unSymbol (Symbol id) = return id
@@ -243,6 +263,7 @@ typeOf (Number _) = symbol "number"
 typeOf (Symbol _) = symbol "symbol"
 typeOf (String _) = symbol "string"
 typeOf (Quote _) = symbol "quote"
-typeOf (Cons _ _) = symbol "cons"
+typeOf (List _ _) = symbol "list"
+typeOf (DottedList _ _ _) = symbol "dotted-list"
 typeOf (Lambda _ _) = symbol "lambda"
 typeOf (Macro _ _) = symbol "macro"

@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedLists #-}
+
 module Lisp.Data where
 
 import Control.Monad.Except
@@ -14,7 +16,8 @@ data Value = Nil
            | Symbol Int
            | String Text
            | Quote Value
-           | Cons Value Value
+           | List Value (Seq Value)
+           | DottedList Value (Seq Value) Value
            | Lambda Function (Seq Env)
            | Macro Macro (Seq Env)
 
@@ -87,12 +90,27 @@ emptyLispState =
             , currentFunc = Nothing
             }
 
+list :: Seq Value -> Value
+list xs =
+  case viewl xs of
+    EmptyL -> Nil
+    (x :< xs') -> List x xs'
+
+dottedList :: Seq Value -> Value -> Value
+dottedList xs y =
+  case viewl xs of
+    EmptyL -> y
+    (x :< xs') ->
+      case y of
+        Nil -> List x xs'
+        _ -> DottedList x xs' y
+
 toSeq :: Value -> Either (Seq Value, Value) (Seq Value)
 toSeq =
-  let go acc (Cons car cdr) = go (acc |> car) cdr
-      go acc Nil = Right acc
-      go acc val = Left (acc, val)
-  in  go S.empty
+  let go (List x xs) = Right (x <| xs)
+      go (DottedList x xs y) = Left (x <| xs, y)
+      go val = Left ([], val)
+  in  go
 
 instance Eq Value where
   (==) Nil Nil = True
@@ -100,5 +118,7 @@ instance Eq Value where
   (==) (Symbol x) (Symbol y) = x == y
   (==) (String x) (String y) = x == y
   (==) (Quote x) (Quote y) = x == y
-  (==) (Cons x y) (Cons x' y') = (x == x') && (y == y')
+  (==) (List x xs) (List y ys) = (x == y) && (xs == ys)
+  (==) (DottedList x xs x') (DottedList y ys y') =
+    (xs == ys) && (x == y) && (x' == y')
   (==) _ _ = False

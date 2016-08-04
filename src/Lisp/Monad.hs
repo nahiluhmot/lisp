@@ -99,5 +99,5 @@ matchArgs ids Nothing args
 matchArgs ids (Just id) args
   | S.length ids <= S.length args =
     let (args', rest) = S.splitAt (S.length ids) args
-    in  return $ S.zip (ids |> id) (args' |> foldr Cons Nil rest)
+    in  return $ S.zip (ids |> id) (args' |> list rest)
   | otherwise = throwError $ ArgMismatch (S.length ids) (S.length args)

@@ -1,6 +1,7 @@
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lisp.Parser where
+module Lisp.Parser (parse) where
 
 import Control.Monad.State hiding (state)
 import Control.Monad.Except
@@ -8,9 +9,10 @@ import Data.Char (digitToInt)
 import Data.Functor
 import Data.Sequence
 import Data.Text hiding (foldl, foldr, map)
-import Text.Parsec as P
+import Text.Parsec as P hiding (parse)
 
-import Lisp.Data
+import Lisp.Data hiding (list, dottedList)
+import qualified Lisp.Data as D
 import qualified Lisp.Monad as M
 
 type Parser = ParsecT Text Bool LispM
@@ -20,7 +22,7 @@ parse input = runParserT (values <* eof) False "*repl*" input
           >>= either (throwError . ParseError) return
 
 values :: Parser (Seq Value)
-values = fromList <$> (spaces *> many (value <* spaces))
+values = fromList <$> (spaces *> many1 (value <* spaces))
 
 value :: Parser Value
 value = choice $ map try parsers
@@ -28,6 +30,7 @@ value = choice $ map try parsers
 parsers :: [Parser Value]
 parsers = [ num
           , symbol
+          , nil
           , list
           , str
           , quoted
@@ -41,36 +44,41 @@ syntaxQuoted :: Parser Value
 syntaxQuoted = do
   inSyntaxQuoted <- getState
   when inSyntaxQuoted $ parserFail "Nested syntax quotes unsupported"
-  parsed <- char '`' *> spaces *> putState True *> value <* putState False
   syntaxQuote <- lift $ M.symbol "syntax-quote"
-  return $ Cons syntaxQuote (Cons parsed Nil)
+  parsed <- char '`' *> spaces *> putState True *> value <* putState False
+  return $ List syntaxQuote [parsed]
 
 syntaxUnquoted :: Parser Value
 syntaxUnquoted = do
   isSyntaxQuoted <- getState
   unless isSyntaxQuoted $ parserFail "Cannot unquote outside of syntax quote"
-  Cons <$> (lift $ M.symbol "unquote")
-       <*> (Cons <$> (char ',' *> spaces *> putState False *> value <* putState True)
-                 <*> pure Nil)
+  unquote <- lift $ M.symbol "unquote"
+  parsed <- char ',' *> spaces *> putState False *> value <* putState True
+  return $ List unquote [parsed]
 
 syntaxSplatted :: Parser Value
 syntaxSplatted = do
   isSyntaxQuoted <- getState
   unless isSyntaxQuoted $ parserFail "Cannot unquote-splat outside of syntax quote"
-  Cons <$> (lift $ M.symbol "unquote-splat")
-       <*> (Cons <$> (string ",@" *> spaces *> putState False *> value <* putState True)
-                 <*> pure Nil)
+  unquoteSplat <- lift $ M.symbol "unquote-splat"
+  parsed <- string ",@" *> spaces *> putState False *> value <* putState True
+  return $ List unquoteSplat [parsed]
 
 quoted :: Parser Value
-quoted = Cons <$> lift (M.symbol "quote")
-              <*> (Cons <$> (char '\'' *> spaces *> value) <*> pure Nil)
+quoted = do
+  quote <- lift $ M.symbol "quote"
+  parsed <- char '\'' *> spaces *> value
+  return $ List quote [parsed]
+
+nil :: Parser Value
+nil = char '(' *> spaces *> char ')' $> Nil
 
 list :: Parser Value
-list = foldr Cons Nil <$> between (char '(')  (char ')') values
+list = D.list <$> between (char '(')  (char ')') values
 
 dottedList :: Parser Value
 dottedList =
-  fmap (uncurry $ flip (foldr Cons)) .
+  fmap (uncurry D.dottedList) .
     between (char '(') (char ')') $
       (,) <$> values <* spaces <* dot <* spaces
           <*> value <* spaces
