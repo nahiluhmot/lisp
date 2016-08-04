@@ -45,6 +45,7 @@ addBuiltins = do
   defmacro "recur" compileRecur
   defmacro "let" compileLet
   defmacro "quote" compileQuote
+  defmacro "syntax-quote" compileSyntaxQuote
 
   defunN 2 "+" $ \[a, b] ->
     case (a, b) of
@@ -88,6 +89,14 @@ addBuiltins = do
       _ -> throwError $ TypeMismatch "cons"
 
   defun "list" $ return . foldr Cons Nil
+  defun "dotted-list" $ \args -> do
+    when (S.length args < 2) $ throwError $ ArgMismatch 2 0
+    let (rest S.:> final) = viewr args
+    return $ foldr Cons final rest
+  defunN 2 "append" $ \[first, rest] ->
+    case toSeq first of
+      Right vals -> return $ foldr Cons rest vals
+      Left _ -> throwError $ TypeMismatch "list"
 
   defun1 "type-of" typeOf
 
@@ -177,7 +186,11 @@ compileIf list
             >< elseCase
 
 compileQuote :: Seq Value -> LispM (Seq Instruction)
-compileQuote [val] =
+compileQuote [val] = (S.singleton . Push) <$> compileQuote' val
+compileQuote list = throwError $ ArgMismatch 2 (S.length list)
+
+compileQuote' :: Value -> LispM Value
+compileQuote' val =
   let go quote cons@(Cons car cdr)
         | car /= quote = return cons
         | otherwise =
@@ -185,8 +198,39 @@ compileQuote [val] =
             Right [curr] -> Quote <$> go quote curr
             _ -> return cons
       go _ curr = return curr
-  in  symbol "quote" >>= flip go val >>= \quoted -> return [Push quoted]
-compileQuote list = throwError $ ArgMismatch 2 (S.length list)
+  in  symbol "quote" >>= flip go val
+
+compileSyntaxQuote :: Seq Value -> LispM (Seq Instruction)
+compileSyntaxQuote [arg] = do
+  unquote <- symbol "unquote"
+  splat <- symbol "unquote-splat"
+  cons <- symToID "cons"
+  append <- symToID "append"
+  let go (Cons car cdr)
+        | car == unquote =
+          case toSeq cdr of
+            Right [val] -> Right <$> compile val
+            _ -> recur
+        | car == splat =
+          case toSeq cdr of
+            Right [val] -> Left <$> compile val
+            _ -> recur
+        | otherwise = recur
+        where recur = do
+                result <- go car
+                result' <- go cdr
+                case (result, result') of
+                  (Right car', Right cdr') ->
+                    return . Right $ Get cons <| ((car' >< cdr') |> Funcall 2)
+                  (Left car', Right cdr') ->
+                    return . Right $ Get append <| ((car' >< cdr') |> Funcall 2)
+                  (_, Left _) -> throwError $ InvalidSyntaxQuote "Cannot unquote-splat in cdr postion"
+      go val = Right <$> compileQuote [val]
+  result <- go arg
+  case result of
+    Right insns -> return insns
+    Left _ -> throwError $ InvalidSyntaxQuote "Cannot unquote-splat outside of cons"
+compileSyntaxQuote list = throwError $ ArgMismatch 1 (S.length list)
 
 unSymbol :: Value -> LispM Int
 unSymbol (Symbol id) = return id

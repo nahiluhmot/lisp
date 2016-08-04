@@ -73,6 +73,7 @@ data LispError = TypeMismatch Text
                | InvalidLet Text
                | InvalidRecur
                | InvalidReturn
+               | InvalidSyntaxQuote Text
                deriving (Show)
 
 type LispM = ExceptT LispError (StateT LispState IO)
