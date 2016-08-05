@@ -14,8 +14,8 @@ import Lisp.Data
 import Lisp.Monad
 import Lisp.Parser
 import Lisp.Compiler
+import Lisp.Core
 import Lisp.VirtualMachine
-import Lisp.Builtins
 
 repl :: IO ()
 repl =
@@ -32,8 +32,8 @@ repl =
       welcome = putStrLn "Welcome to the Lisp REPL!"
   in  do
     welcome
-    (result, state) <- runLispM addBuiltins emptyLispState
+    (result, state) <- runLispM defCore emptyLispState
     case result of
       Left err -> do
-        putStrLn $ "Error adding builtins to language: " `append` pack (show err)
+        putStrLn $ "*** error adding core language: " `append` pack (show err)
       Right _ -> go state

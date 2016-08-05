@@ -23,7 +23,14 @@ library
                      , Lisp.Compiler
                      , Lisp.VirtualMachine
                      , Lisp.Parser
-                     , Lisp.Builtins
+                     , Lisp.Core
+                     , Lisp.Core.Bool
+                     , Lisp.Core.Constants
+                     , Lisp.Core.IO
+                     , Lisp.Core.List
+                     , Lisp.Core.Macros
+                     , Lisp.Core.Math
+                     , Lisp.Core.Meta
                      , Lisp.Repl
   build-depends:       base >= 4.7 && < 5
                      , text >= 1.2 && < 2
