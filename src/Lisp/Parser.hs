@@ -78,10 +78,9 @@ list = D.list <$> between (char '(')  (char ')') values
 
 dottedList :: Parser Value
 dottedList =
-  fmap (uncurry D.dottedList) .
-    between (char '(') (char ')') $
-      (,) <$> values <* spaces <* dot <* spaces
-          <*> value <* spaces
+  between (char '(') (char ')') $
+    D.dottedList <$> values <* spaces <* dot <* spaces
+                 <*> value <* spaces
 
 symbol :: Parser Value
 symbol = do
