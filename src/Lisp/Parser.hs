@@ -65,10 +65,7 @@ syntaxSplatted = do
   return $ List unquoteSplat [parsed]
 
 quoted :: Parser Value
-quoted = do
-  quote <- lift $ M.symbol "quote"
-  parsed <- char '\'' *> spaces *> value
-  return $ List quote [parsed]
+quoted = Quote <$> (char '\'' *> spaces *> value)
 
 nil :: Parser Value
 nil = char '(' *> spaces *> char ')' $> Nil
@@ -79,8 +76,8 @@ list = D.list <$> between (char '(')  (char ')') values
 dottedList :: Parser Value
 dottedList =
   between (char '(') (char ')') $
-    D.dottedList <$> values <* spaces <* dot <* spaces
-                 <*> value <* spaces
+    D.dottedList <$> values <* dot
+                 <*> between spaces spaces value
 
 symbol :: Parser Value
 symbol = do
