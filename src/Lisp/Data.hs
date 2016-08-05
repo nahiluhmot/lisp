@@ -109,6 +109,7 @@ toSeq :: Value -> Either (Seq Value, Value) (Seq Value)
 toSeq =
   let go (List x xs) = Right (x <| xs)
       go (DottedList x xs y) = Left (x <| xs, y)
+      go Nil = Right []
       go val = Left ([], val)
   in  go
 
