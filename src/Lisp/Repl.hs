@@ -16,7 +16,6 @@ import Lisp.Parser
 import Lisp.Compiler
 import Lisp.VirtualMachine
 import Lisp.Builtins
-import Lisp.Helpers
 
 repl :: IO ()
 repl =

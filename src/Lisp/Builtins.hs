@@ -17,7 +17,6 @@ import Lisp.Monad
 import Lisp.Parser (parse)
 import Lisp.VirtualMachine
 import Lisp.Compiler
-import Lisp.Helpers
 
 addBuiltins :: LispM ()
 addBuiltins = do
