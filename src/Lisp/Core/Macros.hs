@@ -31,12 +31,13 @@ defCoreMacros = do
   defmacro2 "def" $ \name val ->
     case name of
       Symbol sym -> (|> Def sym) <$> compile' val
-      val -> raiseTypeMismatch "symbol" val
+      val' -> raiseTypeMismatch "symbol" val'
 
   defmacro "if" compileIf
   defmacro "recur" compileRecur
   defmacro "let" compileLet
   defmacro1 "quote" compileQuote
+  defun1 "quotef" $ return . Quote
   defmacro1 "syntax-quote" compileSyntaxQuote
 
 compileFunc :: Value -> Seq Value -> LispM CompiledFunction
@@ -99,10 +100,16 @@ compileQuote' val = do
 
 compileSyntaxQuote :: Value -> LispM (Seq Instruction)
 compileSyntaxQuote arg = do
+  quote <- symbol "quote"
   unquote <- symbol "unquote"
   splat <- symbol "unquote-splat"
   cons <- symToID "cons"
   append <- symToID "append"
+  let quotef = function "quote-first" $ \vals -> do
+        when (S.length vals /= 1) $ raiseArgMismatch 1 (S.length vals)
+        case S.index vals 0 of
+          (List car []) -> return $ Quote car
+          val -> raiseTypeMismatch "list with one element" val
   let go (List car cdr)
         | car == unquote =
           case cdr of
@@ -112,6 +119,11 @@ compileSyntaxQuote arg = do
           case cdr of
             [val] -> Left <$> compile val
             _ -> recur
+        | car == quote && (S.length cdr == 1) = do
+            result <- go $ List (S.index cdr 0) []
+            case result of
+              Left val -> return . Left $ Push quotef <| (val |> Funcall 1)
+              Right val -> return . Right $ Push quotef <| (val |> Funcall 1)
         | otherwise = recur
         where recur = mapM go (car <| cdr) >>= foldrM combine (Right [Push Nil])
       go (DottedList car cdr last) = do

@@ -99,6 +99,12 @@ toSeq =
       go val = Left ([], val)
   in  go
 
+macro :: Text -> (Seq Value -> LispM (Seq Instruction)) -> Value
+macro name func = Macro (Left (name, func)) []
+
+function :: Text -> (Seq Value -> LispM Value) -> Value
+function name func = Lambda (Left (name, func)) []
+
 instance Eq Value where
   (==) Nil Nil = True
   (==) (Number x) (Number y) = x == y
