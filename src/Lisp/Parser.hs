@@ -6,7 +6,7 @@ module Lisp.Parser (parse) where
 import Control.Monad.State hiding (state)
 import Data.Char (digitToInt)
 import Data.Functor
-import Data.Sequence
+import Data.Sequence as S
 import Data.Text hiding (foldl, foldr, map)
 import Text.Parsec as P hiding (parse)
 
@@ -64,7 +64,8 @@ syntaxSplatted = do
   return $ List unquoteSplat [parsed]
 
 quoted :: Parser Value
-quoted = Quote <$> (char '\'' *> spaces *> value)
+quoted = List <$> lift (M.symbol "quote")
+              <*> (S.singleton <$> (char '\'' *> spaces *> value))
 
 nil :: Parser Value
 nil = char '(' *> spaces *> char ')' $> Nil
