@@ -4,7 +4,7 @@ module Lisp.Repl where
 
 import Prelude hiding (getLine, putStrLn, putStr)
 
-import Control.Monad.State hiding (state)
+import Control.Monad.Except
 import qualified Data.Foldable as F
 import Data.Text
 import Data.Text.IO
@@ -23,11 +23,16 @@ repl =
         (result, state') <- flip runLispM state $ do
           liftIO (putStr "> " >> hFlush stdout >> getLine) >>=
             parse >>=
-            F.foldlM (\_ sexp -> compile sexp >>= eval) Nil
-            >>= printVal
+            F.foldlM (\_ sexp -> compile sexp >>= eval) Nil >>=
+            printVal
         case result of
-          Left err -> putStrLn $ "*** error: " `append` pack (show err)
-          Right _ -> return ()
+          Left err -> do
+            (result', _) <- runLispM (display (Error err)) (state')
+            case result' of
+              Left err' ->
+                putStrLn $ "Ironic error displaying evaluation error: " `mappend` pack (show err')
+              Right displayed -> putStrLn displayed
+          _ -> return ()
         go state'
       welcome = putStrLn "Welcome to the Lisp REPL!"
   in  do

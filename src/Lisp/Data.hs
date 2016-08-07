@@ -7,7 +7,6 @@ import Control.Monad.State
 import Data.Sequence as S
 import Data.Text
 import Data.IntMap as IM
-import Text.Parsec (ParseError)
 
 import Lisp.SymbolTable as ST
 
@@ -20,6 +19,7 @@ data Value = Nil
            | DottedList Value (Seq Value) Value
            | Lambda Function (Seq Env)
            | Macro Macro (Seq Env)
+           | Error LispError
 
 type Function = Either NativeFunction CompiledFunction
 
@@ -61,24 +61,8 @@ data LispState = LispState { symbolTable :: SymbolTable Text
                            , currentFunc :: Maybe CompiledFunction
                            }
 
-data LispError = TypeMismatch Text
-               | EmptyStack
-               | NoScope
-               | UndefinedValue Text
-               | UnsetSymbol Int
-               | ArgMismatch Int Int
-               | NoSuchFunction Int
-               | CompileDottedList
-               | NotImplemented Text
-               | ParseError ParseError
-               | FullIndex
-               | RecurOutsideOfLambda
-               | InvalidLet Text
-               | InvalidRecur
-               | InvalidReturn
-               | InvalidSyntaxQuote Text
-               | IndexOutOfBounds Int Int
-               deriving (Show)
+data LispError = LispError { errType :: Int, errMessage :: Text }
+                 deriving (Eq, Show)
 
 type LispM = ExceptT LispError (StateT LispState IO)
 
@@ -123,4 +107,5 @@ instance Eq Value where
   (==) (List x xs) (List y ys) = (x == y) && (xs == ys)
   (==) (DottedList x xs x') (DottedList y ys y') =
     (xs == ys) && (x == y) && (x' == y')
+  (==) (Error x) (Error y) = x == y
   (==) _ _ = False

@@ -6,7 +6,7 @@
 module Lisp.Core.Macros (defCoreMacros) where
 
 import Prelude hiding (id, last)
-import Control.Monad.Except
+import Control.Monad
 import Data.Sequence as S
 import Data.Foldable
 
@@ -31,7 +31,7 @@ defCoreMacros = do
   defmacro2 "def" $ \name val ->
     case name of
       Symbol sym -> (|> Def sym) <$> compile' val
-      _ -> throwError $ TypeMismatch "symbol"
+      val -> raiseTypeMismatch "symbol" val
 
   defmacro "if" compileIf
   defmacro "recur" compileRecur
@@ -43,7 +43,7 @@ compileFunc :: Value -> Seq Value -> LispM CompiledFunction
 compileFunc sym vals = do
   let namesToIDs = mapM unSymbol
   case viewl vals of
-    EmptyL -> throwError $ ArgMismatch 1 0
+    EmptyL -> raiseArgMismatch 1 0
     (args :< body) -> do
       (ids, extra) <-
         case toSeq args of
@@ -58,24 +58,24 @@ compileFunc sym vals = do
 
 compileLet :: Seq Value -> LispM (Seq Instruction)
 compileLet vals = do
-  when (S.null vals) $ throwError $ ArgMismatch 2 0
+  when (S.null vals) $ raiseArgMismatch 2 0
   let (defs :< body) = viewl vals
       go sexp =
         case toSeq sexp of
           Right [Symbol id, value] -> (|> Set id) <$> compile' value
-          _ -> display sexp >>= throwError . InvalidLet
+          _ -> raiseInvalidLet sexp
   case toSeq defs of
     Right conses -> do
       bodyInsns <- compileValues body
       (PushScope <|) <$> foldrM (\def acc -> (>< acc) <$> go def) (bodyInsns |> PopScope) conses
-    Left _ -> display defs >>= throwError . InvalidLet
+    Left _ -> raiseInvalidLet defs
 
 compileRecur :: Seq Value -> LispM (Seq Instruction)
 compileRecur args = (|> Recur (S.length args)) <$> compileValues' args
 
 compileIf :: Seq Value -> LispM (Seq Instruction)
 compileIf vals
-  | S.length vals < 2 = throwError $ ArgMismatch 2 (S.length vals)
+  | S.length vals < 2 = raiseArgMismatch 2 (S.length vals)
   | otherwise = do
       let ([cond, body], rest) = S.splitAt 2 vals
       condition <- compile' cond
@@ -124,12 +124,12 @@ compileSyntaxQuote arg = do
       combine (Left car') (Right cdr') =
         return . Right $ Get append <| ((car' >< cdr') |> Funcall 2)
       combine _ _ =
-        throwError $ InvalidSyntaxQuote "Cannot unquote-splat in cdr postion"
+        raiseInvalidSyntaxQuote "Cannot unquote-splat in cdr postion"
   result <- go arg
   case result of
     Right insns -> return insns
-    Left _ -> throwError $ InvalidSyntaxQuote "Cannot unquote-splat outside of cons"
+    Left _ -> raiseInvalidSyntaxQuote "Cannot unquote-splat outside of cons"
 
 unSymbol :: Value -> LispM Int
 unSymbol (Symbol id) = return id
-unSymbol _ = throwError $ TypeMismatch "symbol"
+unSymbol val = raiseTypeMismatch "symbol" val

@@ -3,7 +3,6 @@
 
 module Lisp.Core.Bool (defCoreBool) where
 
-import Control.Monad.Except
 import Data.Text
 
 import Lisp.Data
@@ -33,7 +32,8 @@ defBinBool' name f = defBinBool name $ \a b -> return $ f a b
 defNumToBool :: Text -> (Rational -> Rational -> LispM Bool) -> LispM ()
 defNumToBool name f =
   let go (Number x) (Number y) = f x y
-      go _ _ = throwError $ TypeMismatch "bool"
+      go (Number _) x = raiseTypeMismatch "number" x
+      go x _ = raiseTypeMismatch "number" x
   in  defBinBool name go
 
 defNumToBool' :: Text -> (Rational -> Rational -> Bool) -> LispM ()

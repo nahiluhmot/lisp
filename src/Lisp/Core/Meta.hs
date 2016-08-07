@@ -18,11 +18,11 @@ defCoreMeta = do
   defun1 "read" $ \sexp ->
     case sexp of
       (String text) -> list <$> parse text
-      _ -> throwError $ TypeMismatch "string"
+      val -> raiseTypeMismatch "string" val
 
   defun1 "eval" $ \sexp ->
     case toSeq sexp of
-      Left _ -> throwError CompileDottedList
+      Left _ -> raiseCompileDottedList sexp
       Right vs -> foldlM (const $ compile >=> eval) Nil vs
 
 typeOf :: Value -> LispM Value

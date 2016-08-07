@@ -4,7 +4,6 @@
 module Lisp.Parser (parse) where
 
 import Control.Monad.State hiding (state)
-import Control.Monad.Except
 import Data.Char (digitToInt)
 import Data.Functor
 import Data.Sequence
@@ -19,7 +18,7 @@ type Parser = ParsecT Text Bool LispM
 
 parse :: Text -> LispM (Seq Value)
 parse input = runParserT (values <* eof) False "*repl*" input
-          >>= either (throwError . ParseError) return
+          >>= either (M.raiseParseError . pack . show) return
 
 values :: Parser (Seq Value)
 values = fromList <$> (spaces *> many1 (value <* spaces))

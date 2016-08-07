@@ -23,25 +23,88 @@ import qualified Lisp.SymbolTable as ST
 runLispM :: LispM a -> LispState -> IO (Either LispError a, LispState)
 runLispM comp = runStateT (runExceptT comp)
 
+raise :: Text -> Text -> LispM a
+raise sym msg = symToID sym >>= \id -> raise' id msg
+
+raise' :: Int -> Text -> LispM a
+raise' id msg = throwError $ LispError id msg
+
+raiseFullSymbolTable :: LispM a
+raiseFullSymbolTable = raise "internal-error" "Cannot create a new symbol"
+
+raiseEmptyStack :: LispM a
+raiseEmptyStack =
+  raise "internal-error" $ "Called pop with empty stack"
+
+raiseUnsetSymbol :: Int -> LispM a
+raiseUnsetSymbol id = raise "internal-error" $ "Cannot find symbol with ID: " <> pack (show id)
+
+raiseNoScope :: LispM a
+raiseNoScope = raise "internal-error" $ "No local scope"
+
+raiseUndefinedValue :: Text -> LispM a
+raiseUndefinedValue name =
+  raise "undefined-value" $ "`" <> name <> "` is not in scope"
+
+raiseArgMismatch :: Int -> Int -> LispM a
+raiseArgMismatch expected given =
+  raise "arg-mismatch" $ "Expected " <> pack (show expected)
+                      <> " args but " <> pack (show given)
+                      <> " were given"
+
+raiseTypeMismatch :: Text -> Value -> LispM a
+raiseTypeMismatch typ val = do
+  shown <- display val
+  raise "type-mismatch" $ "Expected a `" <> typ <> "`, got: `" <> shown <> "`"
+
+raiseInvalidRecur :: LispM a
+raiseInvalidRecur = raise "invalid-recur" $ "Cannot recur outside of a lambda"
+
+raiseCompileDottedList :: Value -> LispM a
+raiseCompileDottedList value = do
+  displayed <- display value
+  raise "compile-dotted-list" $
+    "Cannot compile a dotted list: " <> displayed
+
+raiseDisallowedForm :: Text -> LispM a
+raiseDisallowedForm name =
+  raise "disallowed-form" $ "Cannot call `" <> name <> "` here"
+
+raiseParseError :: Text -> LispM a
+raiseParseError = raise "parse-error"
+
+raiseIndexOutOfBounds :: Int -> Int -> LispM a
+raiseIndexOutOfBounds given expected =
+  raise "index-out-of-bounds" $ "Tried to access index " <> pack (show given)
+                            <> " when maximum index is " <> pack (show expected)
+
+raiseInvalidLet :: Value -> LispM a
+raiseInvalidLet val = do
+  displayed <- display val
+  raise "invalid-let" $ "Invalid let form: " <> displayed
+
+raiseInvalidSyntaxQuote :: Text -> LispM a
+raiseInvalidSyntaxQuote = raise "invalid-syntax-quote"
+
 symToID :: Text -> LispM Int
 symToID text = do
   state <- get
   case ST.symToID text $ symbolTable state of
-    Nothing -> throwError FullIndex
+    Nothing -> raiseFullSymbolTable
     Just (sym, table) -> do
       put $ state { symbolTable = table }
       return sym
 
 idToSym :: Int -> LispM Text
 idToSym id = gets (ST.idToSym id . symbolTable)
-         >>= maybe (throwError $ UnsetSymbol id) return
+         >>= maybe (raiseUnsetSymbol id) return
 
 symbol :: Text -> LispM Value
 symbol text = Symbol <$> symToID text
 
 lookupSymbol :: Int -> LispM Value
 lookupSymbol id = lookupSymbol' id
-              >>= maybe (idToSym id >>= throwError . UndefinedValue) return
+              >>= maybe (idToSym id >>= raiseUndefinedValue) return
 
 lookupSymbol' :: Int -> LispM (Maybe Value)
 lookupSymbol' id =
@@ -73,7 +136,7 @@ pop = flip S.index 0 <$> popN 1
 popN :: Int -> LispM (Seq Value)
 popN int =
   let go 0 before after = return (before, after)
-      go _ _ [] = throwError EmptyStack
+      go _ _ [] = raiseEmptyStack
       go n before after =
         let (val :< after') = viewl after
         in  go (pred n) (val <| before) after'
@@ -84,7 +147,7 @@ localDef key val = localDef' [(key, val)]
 
 localDef' :: Seq (Int, Value) -> LispM ()
 localDef' defs =
-  let insertValues EmptyL = throwError NoScope
+  let insertValues EmptyL = raiseNoScope
       insertValues (env :< envs') =
         return ((), foldr (uncurry IM.insert) env defs <| envs')
   in  modifyScope (insertValues . viewl)
@@ -100,12 +163,12 @@ globalDef' key val = symToID key >>= flip globalDef val
 matchArgs :: Seq Int -> Maybe Int -> Seq Value -> LispM (Seq (Int, Value))
 matchArgs ids Nothing args
   | S.length ids == S.length args = return $ S.zip ids args
-  | otherwise = throwError $ ArgMismatch (S.length ids) (S.length args)
+  | otherwise = raiseArgMismatch (S.length ids) (S.length args)
 matchArgs ids (Just id) args
   | S.length ids <= S.length args =
     let (args', rest) = S.splitAt (S.length ids) args
     in  return $ S.zip (ids |> id) (args' |> list rest)
-  | otherwise = throwError $ ArgMismatch (S.length ids) (S.length args)
+  | otherwise = raiseArgMismatch (S.length ids) (S.length args)
 
 defmacro :: Text -> (Seq Value -> LispM (Seq Instruction)) -> LispM ()
 defmacro sym func = globalDef' sym $ Macro (Left (sym, func)) []
@@ -113,7 +176,7 @@ defmacro sym func = globalDef' sym $ Macro (Left (sym, func)) []
 defmacroN :: Int -> Text -> (Seq Value -> LispM (Seq Instruction)) -> LispM ()
 defmacroN n sym func =
   defmacro sym $ \args -> do
-    when (S.length args /= n) $ throwError $ ArgMismatch n (S.length args)
+    when (S.length args /= n) $ raiseArgMismatch n (S.length args)
     func args
 
 defmacro0 :: Text -> LispM (Seq Instruction) -> LispM ()
@@ -134,7 +197,7 @@ defun sym func = globalDef' sym $ Lambda (Left (sym, func)) []
 defunN :: Int -> Text -> (Seq Value -> LispM Value) -> LispM ()
 defunN n sym func =
   defun sym $ \args -> do
-    when (S.length args /= n) $ throwError $ ArgMismatch n (S.length args)
+    when (S.length args /= n) $ raiseArgMismatch n (S.length args)
     func args
 
 defun0 :: Text -> LispM Value -> LispM ()
@@ -177,3 +240,6 @@ display (Macro (Left (n, _)) _) = do
 display (Macro (Right (CompiledFunction _ _ _ src)) _) = do
   displayed <- display src
   return $ "#<" <> displayed <> ">"
+display (Error (LispError typ msg)) = do
+  sym <- idToSym typ
+  return $ "#<error " <> sym  <> ": " <> msg <> ">"

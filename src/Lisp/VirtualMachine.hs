@@ -4,8 +4,7 @@
 {-# LANGUAGE OverloadedLists #-}
 module Lisp.VirtualMachine (eval) where
 
-import Control.Monad.State
-import Control.Monad.Except
+import Control.Monad.State hiding (state)
 import Data.Functor
 import Data.Sequence as S
 import Data.IntMap (insert)
@@ -16,13 +15,15 @@ import Lisp.Monad
 eval :: Seq Instruction -> LispM Value
 eval insns =
   let evalIndex pc
-        | (pc >= S.length insns) || (pc < 0) =
-          pop `catchError` \e ->
-            case e of
-              EmptyStack -> return $ Nil
-              _ -> throwError e
+        | (pc >= S.length insns) || (pc < 0) = do
+          state <- get
+          put $ state { stack = [] }
+          return $
+            case viewl $ stack state of
+              EmptyL -> Nil
+              (first :< _) -> first
         | otherwise = evalInstruction pc (index insns pc) >>= evalIndex
-  in modify (\curr -> curr { stack = [] }) >> evalIndex 0
+  in  modify (\curr -> curr { stack = [] }) >> evalIndex 0
 
 evalInstruction :: Int -> Instruction -> LispM Int
 evalInstruction pc Noop = return $ succ pc
@@ -34,7 +35,7 @@ evalInstruction pc PushScope =
 evalInstruction pc PopScope =
   modifyScope $ \scopes ->
     case viewl scopes of
-      EmptyL -> throwError NoScope
+      EmptyL -> raiseNoScope
       (_ :< scope') -> return (succ pc, scope')
 evalInstruction pc (Def sym) = (pop >>= globalDef sym) $> succ pc
 evalInstruction pc (Get sym) = (lookupSymbol sym >>= push) $> succ pc
@@ -64,12 +65,12 @@ evalInstruction pc (Funcall argc) = do
              , stack = val <| stack ours
              , currentFunc = currentFunc ours
              }
-    _ -> throwError $ TypeMismatch "lambda"
+    val -> raiseTypeMismatch "lambda" val
   return $ succ pc
 evalInstruction _ Return = return (-1)
 evalInstruction _ (Recur argc) = do
   result <- gets currentFunc
-  (CompiledFunction _ ids extra _) <- maybe (throwError RecurOutsideOfLambda) return result
+  (CompiledFunction _ ids extra _) <- maybe raiseInvalidRecur return result
   args <- popN argc
   matched <- matchArgs ids extra args
   localDef' matched

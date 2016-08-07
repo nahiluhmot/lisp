@@ -9,7 +9,6 @@ module Lisp.Compiler ( compile
                      ) where
 
 import Prelude hiding (id, length)
-import Control.Monad.Except
 import Data.Foldable (foldrM)
 import Data.Maybe
 import Data.Sequence
@@ -23,7 +22,7 @@ compile Nil = return [Push Nil]
 compile (Symbol id) = return [Get id]
 compile (Quote lit) = return [Push lit]
 compile (List fn args) = compileFuncall fn args
-compile (DottedList _ _ _) = throwError $ CompileDottedList
+compile val@(DottedList _ _ _) = raiseCompileDottedList val
 compile lit = return [Push lit]
 
 compileValues :: Seq Value -> LispM (Seq Instruction)
@@ -32,8 +31,8 @@ compileValues = concatM compile
 compile' :: Value -> LispM (Seq Instruction)
 compile' val = do
   insns <- compile val
-  let go (Recur _)= throwError InvalidRecur
-      go (Return) = throwError InvalidReturn
+  let go (Recur _)= raiseDisallowedForm "recur"
+      go Return = raiseDisallowedForm "return"
       go insn = return insn
   mapM go insns
 
@@ -52,7 +51,7 @@ compileFuncall (Symbol fn) args =
       macroExpand _ = Nothing
       makeFuncall = (|> Funcall (length args)) <$> ((Get fn <|) <$> compileValues' args)
   in  lookupSymbol' fn >>= \val -> fromMaybe makeFuncall $ val >>= macroExpand
-compileFuncall _ _ = throwError $ TypeMismatch "function or macro"
+compileFuncall val _ = raiseTypeMismatch "function or macro" val
 
 concatM :: (Monad m, Foldable f, Monoid b) => (a -> m b) -> f a -> m b
 concatM f = foldrM (\x ys -> flip mappend ys <$> f x) mempty

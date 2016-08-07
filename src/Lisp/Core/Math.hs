@@ -3,7 +3,6 @@
 
 module Lisp.Core.Math (defCoreMath) where
 
-import Control.Monad.Except
 import Data.Text
 
 import Lisp.Data
@@ -19,5 +18,6 @@ defCoreMath = do
 defBinMath :: Text -> (Rational -> Rational -> Rational) -> LispM ()
 defBinMath name f =
   let go (Number x) (Number y) = return . Number $ f x y
-      go _ _ = throwError $ TypeMismatch "number"
+      go (Number _) val = raiseTypeMismatch "number" val
+      go val _ = raiseTypeMismatch "number" val
   in  defun2 name go
