@@ -51,6 +51,7 @@ data Instruction = Noop
                  | Funcall Int
                  | Return
                  | Recur Int
+                 | Raise
 
 type Env = IntMap Value
 

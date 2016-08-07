@@ -1,6 +1,7 @@
 module Lisp.Core (defCore) where
 
 import Lisp.Core.Bool
+import Lisp.Core.Error
 import Lisp.Core.Constants
 import Lisp.Core.IO
 import Lisp.Core.List
@@ -13,6 +14,7 @@ defCore :: LispM ()
 defCore = do
   defCoreBool
   defCoreConstants
+  defCoreError
   defCoreIO
   defCoreList
   defCoreMacros

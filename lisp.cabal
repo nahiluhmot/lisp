@@ -26,6 +26,7 @@ library
                      , Lisp.Core
                      , Lisp.Core.Bool
                      , Lisp.Core.Constants
+                     , Lisp.Core.Error
                      , Lisp.Core.IO
                      , Lisp.Core.List
                      , Lisp.Core.Macros

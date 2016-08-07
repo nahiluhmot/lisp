@@ -75,3 +75,9 @@ evalInstruction _ (Recur argc) = do
   matched <- matchArgs ids extra args
   localDef' matched
   return 0
+evalInstruction _ Raise = do
+  [typ, str] <- popN 2
+  case (typ, str) of
+    (Symbol sym, String msg) -> raise' sym msg
+    (Symbol _, given) -> raiseTypeMismatch "string" given
+    (given, _) -> raiseTypeMismatch "symbol" given
