@@ -41,27 +41,27 @@ parsers = [ num
 
 syntaxQuoted :: Parser Value
 syntaxQuoted = do
+  _ <- char '`' *> spaces
   inSyntaxQuoted <- getState
   when inSyntaxQuoted $ parserFail "Nested syntax quotes unsupported"
-  syntaxQuote <- lift $ M.symbol "syntax-quote"
-  parsed <- char '`' *> spaces *> putState True *> value <* putState False
-  return $ List syntaxQuote [parsed]
+  List <$> lift (M.symbol "syntax-quote")
+       <*> (S.singleton <$> (putState True *> value <* putState False))
 
 syntaxUnquoted :: Parser Value
 syntaxUnquoted = do
+  _ <- char ',' *> spaces
   isSyntaxQuoted <- getState
   unless isSyntaxQuoted $ parserFail "Cannot unquote outside of syntax quote"
-  unquote <- lift $ M.symbol "unquote"
-  parsed <- char ',' *> spaces *> putState False *> value <* putState True
-  return $ List unquote [parsed]
+  List <$> lift (M.symbol "unquote")
+       <*> (S.singleton <$> (putState False *> value <* putState True))
 
 syntaxSplatted :: Parser Value
 syntaxSplatted = do
+  _ <- string ",@" *> spaces
   isSyntaxQuoted <- getState
   unless isSyntaxQuoted $ parserFail "Cannot unquote-splat outside of syntax quote"
-  unquoteSplat <- lift $ M.symbol "unquote-splat"
-  parsed <- string ",@" *> spaces *> putState False *> value <* putState True
-  return $ List unquoteSplat [parsed]
+  List <$> lift (M.symbol "unquote-splat")
+       <*> (S.singleton <$> (putState False *> value <* putState True))
 
 quoted :: Parser Value
 quoted = List <$> lift (M.symbol "quote")
