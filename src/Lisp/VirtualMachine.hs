@@ -2,7 +2,7 @@
 
 module Lisp.VirtualMachine (eval) where
 
-import Control.Monad.State hiding (state)
+import Control.Monad.State.Strict hiding (state)
 import Data.Functor
 import Data.Sequence as S
 import qualified Data.IntMap.Strict as IM

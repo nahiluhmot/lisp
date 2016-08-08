@@ -2,7 +2,7 @@
 
 module Lisp.Core.IO where
 
-import Control.Monad.State
+import Control.Monad.State.Strict
 import Data.Functor
 import qualified Data.Text.IO as IO
 

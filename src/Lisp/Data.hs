@@ -3,7 +3,7 @@
 module Lisp.Data where
 
 import Control.Monad.Except
-import Control.Monad.State
+import Control.Monad.State.Strict
 import Data.Sequence as S
 import Data.Text
 import Data.IntMap.Strict as IM

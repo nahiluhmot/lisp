@@ -8,7 +8,7 @@ import qualified Prelude as P
 
 import Control.Applicative
 import Control.Monad.Except
-import Control.Monad.State hiding (state)
+import Control.Monad.State.Strict hiding (state)
 import qualified Data.Foldable as F
 import qualified Data.IntMap.Strict as IM
 import Data.Monoid

@@ -3,7 +3,7 @@
 
 module Lisp.Parser (parse) where
 
-import Control.Monad.State hiding (state)
+import Control.Monad.State.Strict hiding (state)
 import Data.Char (digitToInt)
 import Data.Functor
 import Data.Sequence as S
