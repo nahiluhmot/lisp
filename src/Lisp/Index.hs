@@ -8,7 +8,7 @@ module Lisp.Index ( Index
                   , select
                   ) where
 
-import qualified Data.IntMap as I
+import qualified Data.IntMap.Strict as I
 import qualified Data.IntSet as S
 import Prelude hiding (id, lookup)
 

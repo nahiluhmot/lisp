@@ -6,7 +6,7 @@ import Control.Monad.Except
 import Control.Monad.State
 import Data.Sequence as S
 import Data.Text
-import Data.IntMap as IM
+import Data.IntMap.Strict as IM
 
 import Lisp.SymbolTable as ST
 

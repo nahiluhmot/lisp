@@ -10,7 +10,7 @@ import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.State hiding (state)
 import qualified Data.Foldable as F
-import qualified Data.IntMap as IM
+import qualified Data.IntMap.Strict as IM
 import Data.Monoid
 import Data.Ratio
 import Data.Sequence as S
