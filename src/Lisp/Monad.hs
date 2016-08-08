@@ -158,7 +158,7 @@ localDef' :: IM.IntMap Value -> LispM ()
 localDef' defs =
   modifyScope $ \envs -> do
     when (P.null envs) raiseNoScope
-    return ((), IM.intersection defs (head envs) : tail envs)
+    return ((), IM.union defs (head envs) : tail envs)
 
 globalDef :: Int -> Value -> LispM ()
 globalDef key val =
