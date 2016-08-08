@@ -15,13 +15,17 @@ eval insns =
   let evalIndex pc
         | (pc >= S.length insns) || (pc < 0) = do
           state <- get
-          put $ state { stack = S.empty }
           return $
             case viewl $ stack state of
               EmptyL -> Nil
               (first :< _) -> first
         | otherwise = evalInstruction pc (index insns pc) >>= evalIndex
-  in  modify (\curr -> curr { stack = S.empty }) >> evalIndex 0
+  in  do
+    old <- get
+    put $ old { stack = S.empty }
+    result <- evalIndex 0
+    modify $ \state -> state { stack = stack old }
+    return result
 
 evalInstruction :: Int -> Instruction -> LispM Int
 evalInstruction pc Noop = return $ succ pc
