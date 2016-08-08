@@ -93,8 +93,8 @@ compileQuote' :: Value -> LispM Value
 compileQuote' val = do
   quote <- symbol "quote"
   let go vals@(List car cdr)
-        | (car /= quote) && (S.length cdr /= 1) = return vals
-        | S.length cdr == 1 = Quote <$> go (index cdr 0)
+        | (car == quote) && (S.length cdr == 1) = Quote <$> go (index cdr 0)
+        | otherwise = return vals
       go curr = return curr
   go val
 
