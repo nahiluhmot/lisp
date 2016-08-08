@@ -31,12 +31,12 @@ evalInstruction pc Pop = pop $> succ pc
 evalInstruction pc (Push val) = push val $> succ pc
 evalInstruction pc PushScope =
   modifyScope $ \scopes ->
-    return $ (succ pc, [] <| scopes)
+    return $ (succ pc, [] : scopes)
 evalInstruction pc PopScope =
   modifyScope $ \scopes ->
-    case viewl scopes of
-      EmptyL -> raiseNoScope
-      (_ :< scope') -> return (succ pc, scope')
+    case scopes of
+      [] -> raiseNoScope
+      (_ : scope') -> return (succ pc, scope')
 evalInstruction pc (Def sym) = (pop >>= globalDef sym) $> succ pc
 evalInstruction pc (Get sym) = (lookupSymbol sym >>= push) $> succ pc
 evalInstruction pc (Set sym) = (pop >>= localDef sym) $> succ pc
@@ -50,7 +50,7 @@ evalInstruction pc (BranchUnless idx) =
       branchUnless _ = succ pc
   in  branchUnless <$> pop
 evalInstruction pc (MakeLambda func) = (gets scope >>= push . Lambda (Right func)) $> succ pc
-evalInstruction pc (MakeMacro macro) = (gets scope >>= push . Macro (Right macro)) $> succ pc
+evalInstruction pc (MakeMacro mac) = (gets scope >>= push . Macro (Right mac)) $> succ pc
 evalInstruction pc (Funcall argc) = do
   (fn :< args) <- fmap viewl . popN $ succ argc
   case fn of
@@ -58,7 +58,7 @@ evalInstruction pc (Funcall argc) = do
     Lambda (Right func@(CompiledFunction insns ids extra _)) scope' -> do
       currScope <- foldr (uncurry insert) [] <$> matchArgs ids extra args
       ours <- get
-      put $ ours { scope = currScope <| scope', currentFunc = Just func }
+      put $ ours { scope = currScope : scope', currentFunc = Just func }
       val <- eval insns
       modify $ \curr->
         curr { scope = scope ours

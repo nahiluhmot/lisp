@@ -4,6 +4,7 @@
 module Lisp.Monad where
 
 import Prelude hiding (id)
+import qualified Prelude as P
 
 import Control.Applicative
 import Control.Monad.Except
@@ -13,7 +14,7 @@ import qualified Data.IntMap as IM
 import Data.Monoid
 import Data.Ratio
 import Data.Sequence as S
-import Data.Text hiding (foldl, foldr)
+import Data.Text hiding (head, foldl, foldr, map, tail)
 import qualified Data.Text.IO as IO
 import Numeric (fromRat)
 
@@ -109,11 +110,11 @@ lookupSymbol id = lookupSymbol' id
 lookupSymbol' :: Int -> LispM (Maybe Value)
 lookupSymbol' id =
   gets $ \state ->
-    foldl (\acc env -> acc <|> IM.lookup id env)
-          Nothing
-          (scope state |> globals state)
+    let local = foldl (<|>) Nothing . map (IM.lookup id) $ scope state
+        global = IM.lookup id $ globals state
+    in  local <|> global
 
-modifyScope :: (Seq Env -> LispM (a, Seq Env)) -> LispM a
+modifyScope :: ([Env] -> LispM (a, [Env])) -> LispM a
 modifyScope f = do
   state <- get
   (ret, scope') <- f $ scope state
@@ -147,10 +148,9 @@ localDef key val = localDef' [(key, val)]
 
 localDef' :: Seq (Int, Value) -> LispM ()
 localDef' defs =
-  let insertValues EmptyL = raiseNoScope
-      insertValues (env :< envs') =
-        return ((), foldr (uncurry IM.insert) env defs <| envs')
-  in  modifyScope (insertValues . viewl)
+  modifyScope $ \envs -> do
+    when (P.null envs) raiseNoScope
+    return ((), foldr (uncurry IM.insert) (head envs) defs : tail envs)
 
 globalDef :: Int -> Value -> LispM ()
 globalDef key val =

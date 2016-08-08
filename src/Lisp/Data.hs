@@ -17,8 +17,8 @@ data Value = Nil
            | Quote Value
            | List Value (Seq Value)
            | DottedList Value (Seq Value) Value
-           | Lambda Function (Seq Env)
-           | Macro Macro (Seq Env)
+           | Lambda Function [Env]
+           | Macro Macro [Env]
            | Error LispError
 
 type Function = Either NativeFunction CompiledFunction
@@ -57,7 +57,7 @@ type Env = IntMap Value
 
 data LispState = LispState { symbolTable :: SymbolTable Text
                            , globals     :: Env
-                           , scope       :: Seq Env
+                           , scope       :: [Env]
                            , stack       :: Seq Value
                            , currentFunc :: Maybe CompiledFunction
                            }
@@ -71,7 +71,7 @@ emptyLispState :: LispState
 emptyLispState =
   LispState { symbolTable = ST.empty
             , globals = IM.empty
-            , scope = S.empty
+            , scope = []
             , stack = S.empty
             , currentFunc = Nothing
             }
