@@ -15,6 +15,13 @@ defCoreMeta :: LispM ()
 defCoreMeta = do
   defun1 "type-of" typeOf
 
+  defun1 "intern" $ \val ->
+    case val of
+      String str -> symbol str
+      _ -> raiseTypeMismatch "string" val
+
+  defun1 "to-s" $ \val -> String <$> display val
+
   defun1 "read" $ \sexp ->
     case sexp of
       (String text) -> list <$> parse text
@@ -35,3 +42,4 @@ typeOf (List _ _) = symbol "list"
 typeOf (DottedList _ _ _) = symbol "dotted-list"
 typeOf (Lambda _ _) = symbol "lambda"
 typeOf (Macro _ _) = symbol "macro"
+typeOf (Error _) = symbol "error"
