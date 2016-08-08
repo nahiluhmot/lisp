@@ -134,23 +134,31 @@ push v = modifyStack $ \vs -> return ((), v <| vs)
 pop :: LispM Value
 pop = flip S.index 0 <$> popN 1
 
+pop2 :: LispM (Value, Value)
+pop2 = do
+  [first, second] <- popN 2
+  return (first, second)
+
 popN :: Int -> LispM (Seq Value)
-popN int =
-  let go 0 before after = return (before, after)
-      go _ _ [] = raiseEmptyStack
-      go n before after =
-        let (val :< after') = viewl after
-        in  go (pred n) (val <| before) after'
-  in  modifyStack $ go int []
+popN int = popNWith int (<|) S.empty
+
+popNWith :: Int -> (Value -> a -> a) -> a -> LispM a
+popNWith int f =
+  let go 0 acc vals = return (acc, vals)
+      go n acc vals =
+        case viewl vals of
+          EmptyL -> raiseEmptyStack
+          (val :< vals') -> go (pred n) (f val acc) vals'
+  in  modifyStack . go int
 
 localDef :: Int -> Value -> LispM ()
 localDef key val = localDef' [(key, val)]
 
-localDef' :: Seq (Int, Value) -> LispM ()
+localDef' :: IM.IntMap Value -> LispM ()
 localDef' defs =
   modifyScope $ \envs -> do
     when (P.null envs) raiseNoScope
-    return ((), foldr (uncurry IM.insert) (head envs) defs : tail envs)
+    return ((), IM.intersection defs (head envs) : tail envs)
 
 globalDef :: Int -> Value -> LispM ()
 globalDef key val =
@@ -160,14 +168,14 @@ globalDef key val =
 globalDef' :: Text -> Value -> LispM ()
 globalDef' key val = symToID key >>= flip globalDef val
 
-matchArgs :: Seq Int -> Maybe Int -> Seq Value -> LispM (Seq (Int, Value))
+matchArgs :: Seq Int -> Maybe Int -> Seq Value -> LispM (IM.IntMap Value)
 matchArgs ids Nothing args
-  | S.length ids == S.length args = return $ S.zip ids args
+  | S.length ids == S.length args = return . foldr (uncurry IM.insert) IM.empty $ S.zip ids args
   | otherwise = raiseArgMismatch (S.length ids) (S.length args)
 matchArgs ids (Just id) args
   | S.length ids <= S.length args =
     let (args', rest) = S.splitAt (S.length ids) args
-    in  return $ S.zip (ids |> id) (args' |> list rest)
+    in  return . foldr (uncurry IM.insert) IM.empty  $ S.zip (ids |> id) (args' |> list rest)
   | otherwise = raiseArgMismatch (S.length ids) (S.length args)
 
 defmacro :: Text -> (Seq Value -> LispM (Seq Instruction)) -> LispM ()

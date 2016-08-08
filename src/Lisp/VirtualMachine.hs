@@ -1,13 +1,11 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE OverloadedLists #-}
+
 module Lisp.VirtualMachine (eval) where
 
 import Control.Monad.State hiding (state)
 import Data.Functor
 import Data.Sequence as S
-import Data.IntMap (insert)
+import qualified Data.IntMap as IM
 
 import Lisp.Data
 import Lisp.Monad
@@ -17,13 +15,13 @@ eval insns =
   let evalIndex pc
         | (pc >= S.length insns) || (pc < 0) = do
           state <- get
-          put $ state { stack = [] }
+          put $ state { stack = S.empty }
           return $
             case viewl $ stack state of
               EmptyL -> Nil
               (first :< _) -> first
         | otherwise = evalInstruction pc (index insns pc) >>= evalIndex
-  in  modify (\curr -> curr { stack = [] }) >> evalIndex 0
+  in  modify (\curr -> curr { stack = S.empty }) >> evalIndex 0
 
 evalInstruction :: Int -> Instruction -> LispM Int
 evalInstruction pc Noop = return $ succ pc
@@ -31,7 +29,7 @@ evalInstruction pc Pop = pop $> succ pc
 evalInstruction pc (Push val) = push val $> succ pc
 evalInstruction pc PushScope =
   modifyScope $ \scopes ->
-    return $ (succ pc, [] : scopes)
+    return $ (succ pc, IM.empty : scopes)
 evalInstruction pc PopScope =
   modifyScope $ \scopes ->
     case scopes of
@@ -56,7 +54,7 @@ evalInstruction pc (Funcall argc) = do
   case fn of
     Lambda (Left (_, run)) _ -> run args >>= push
     Lambda (Right func@(CompiledFunction insns ids extra _)) scope' -> do
-      currScope <- foldr (uncurry insert) [] <$> matchArgs ids extra args
+      currScope <- matchArgs ids extra args
       ours <- get
       put $ ours { scope = currScope : scope', currentFunc = Just func }
       val <- eval insns
@@ -68,16 +66,13 @@ evalInstruction pc (Funcall argc) = do
     val -> raiseTypeMismatch "lambda" val
   return $ succ pc
 evalInstruction _ Return = return (-1)
-evalInstruction _ (Recur argc) = do
+evalInstruction _ (Recur argc) = 0 <$ do
   result <- gets currentFunc
   (CompiledFunction _ ids extra _) <- maybe raiseInvalidRecur return result
-  args <- popN argc
-  matched <- matchArgs ids extra args
-  localDef' matched
-  return 0
+  popN argc >>= matchArgs ids extra >>= localDef'
 evalInstruction _ Raise = do
-  [typ, str] <- popN 2
-  case (typ, str) of
+  tup <- pop2
+  case tup of
     (Symbol sym, String msg) -> raise' sym msg
     (Symbol _, given) -> raiseTypeMismatch "string" given
     (given, _) -> raiseTypeMismatch "symbol" given
