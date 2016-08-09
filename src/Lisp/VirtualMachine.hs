@@ -52,8 +52,12 @@ evalInstruction pc (BranchUnless idx) =
   let branchUnless Nil = pc + idx
       branchUnless _ = succ pc
   in  branchUnless <$> pop
-evalInstruction pc (MakeLambda func) = (gets scope >>= push . Lambda (Right func)) $> succ pc
-evalInstruction pc (MakeMacro mac) = (gets scope >>= push . Macro (Right mac)) $> succ pc
+evalInstruction pc (MakeLambda func) = succ pc <$ do
+  envs <- gets scope
+  push $ Lambda (Right (func, envs))
+evalInstruction pc (MakeMacro func) = succ pc <$ do
+  envs <- gets scope
+  push $ Macro (Right (func, envs))
 evalInstruction pc (Funcall argc) = succ pc <$ do
   (fn :< args) <- fmap viewl . popN $ succ argc
   funcall fn args >>= push
@@ -76,8 +80,8 @@ evalInstruction pc PopErrorHandler = succ pc <$ do
   put $ state { errorHandlers = tail $ errorHandlers state }
 
 funcall :: Value -> Seq Value -> LispM Value
-funcall (Lambda (Left (_, run)) _) args = run args
-funcall (Lambda (Right func@(CompiledFunction insns ids extra _)) scope') args = do
+funcall (Lambda (Left (_, run))) args = run args
+funcall (Lambda (Right (func@(CompiledFunction insns ids extra _), scope'))) args = do
   currScope <- matchArgs ids extra args
   ours <- get
   put $ ours { scope = currScope : scope', currentFunc = Just func }

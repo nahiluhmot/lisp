@@ -17,13 +17,13 @@ data Value = Nil
            | Quote Value
            | List Value (Seq Value)
            | DottedList Value (Seq Value) Value
-           | Lambda Function [Env]
-           | Macro Macro [Env]
+           | Lambda Function
+           | Macro Macro
            | Error LispError
 
-type Function = Either NativeFunction CompiledFunction
+type Function = Either NativeFunction (CompiledFunction, [Env])
 
-type Macro = Either NativeMacro CompiledFunction
+type Macro = Either NativeMacro (CompiledFunction, [Env])
 
 type NativeMacro = (Text, Seq Value -> LispM (Seq Instruction))
 
@@ -104,10 +104,10 @@ toSeq =
   in  go
 
 macro :: Text -> (Seq Value -> LispM (Seq Instruction)) -> Value
-macro name func = Macro (Left (name, func)) []
+macro name func = Macro (Left (name, func))
 
 function :: Text -> (Seq Value -> LispM Value) -> Value
-function name func = Lambda (Left (name, func)) []
+function name func = Lambda (Left (name, func))
 
 instance Eq Value where
   (==) Nil Nil = True

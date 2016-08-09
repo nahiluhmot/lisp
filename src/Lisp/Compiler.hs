@@ -43,9 +43,9 @@ compileFuncall :: Value -> Seq Value -> LispM (Seq Instruction)
 compileFuncall fn@(List _ _) args =
   fmap (|> Funcall (length args)) $ (><) <$> compile fn <*> compileValues args
 compileFuncall (Symbol fn) args =
-  let macroExpand (Macro (Left (_, native)) _) = Just $ native args
-      macroExpand (Macro (Right compiled) scopeIDs) =
-        let insns = Push (Lambda (Right compiled) scopeIDs)
+  let macroExpand (Macro (Left (_, native))) = Just $ native args
+      macroExpand (Macro (Right func)) =
+        let insns = Push (Lambda (Right func))
                  <| (fmap Push args |> Funcall (length args))
         in  Just $ eval insns >>= compile
       macroExpand _ = Nothing
