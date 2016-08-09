@@ -3,6 +3,7 @@
 module Lisp.VirtualMachine (eval, funcall) where
 
 import Prelude as P
+import Control.Monad.Except
 import Control.Monad.State.Strict hiding (state)
 import Data.Functor
 import Data.Sequence as S
@@ -21,7 +22,7 @@ eval insns =
               EmptyL -> Nil
               (first :< _) -> first
         | otherwise = evalInstruction pc (index insns pc) >>= evalIndex
-  in  do
+  in  flip catchError handleError $ do
     old <- get
     put $ old { stack = S.empty }
     result <- evalIndex 0
@@ -90,3 +91,11 @@ funcall (Right (func@(CompiledFunction insns ids extra _), scope')) args = do
   val <- eval insns
   modify $ \curr -> curr { scope = scope ours, currentFunc = currentFunc ours }
   return val
+
+handleError :: LispError -> LispM Value
+handleError err =
+  let go [] = throwError err
+      go (handler : handlers) = do
+        modify $ \state -> state { errorHandlers = handlers }
+        funcall handler . singleton $ Error err
+  in  gets errorHandlers >>= go
