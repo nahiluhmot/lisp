@@ -30,6 +30,12 @@ defPreludeList = do
       (List val vals, val') -> return $ DottedList val vals val'
       (val, _) -> raiseTypeMismatch "list" val
 
+  defun1 "length" $ \val ->
+    case val of
+      Nil -> return $ Number 0
+      List _ vals -> return . Number . fromIntegral . succ $ length vals
+      _ -> raiseTypeMismatch "list" val
+
   defun2 "index" $ \vals idx ->
     case (vals, idx) of
       (List val vals', num@(Number rational))
