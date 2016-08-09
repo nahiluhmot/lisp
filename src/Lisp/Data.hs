@@ -25,9 +25,9 @@ type Function = Either NativeFunction (CompiledFunction, [Env])
 
 type Macro = Either NativeMacro (CompiledFunction, [Env])
 
-type NativeMacro = (Text, Seq Value -> LispM (Seq Instruction))
+type NativeMacro = (Int, Seq Value -> LispM (Seq Instruction))
 
-type NativeFunction = (Text, Seq Value -> LispM Value)
+type NativeFunction = (Int, Seq Value -> LispM Value)
 
 data CompiledFunction = CompiledFunction { instructions :: Seq Instruction
                                          , argIDs       :: Seq Int
@@ -103,10 +103,10 @@ toSeq =
       go val = Left ([], val)
   in  go
 
-macro :: Text -> (Seq Value -> LispM (Seq Instruction)) -> Value
+macro :: Int -> (Seq Value -> LispM (Seq Instruction)) -> Value
 macro name func = Macro (Left (name, func))
 
-function :: Text -> (Seq Value -> LispM Value) -> Value
+function :: Int -> (Seq Value -> LispM Value) -> Value
 function name func = Lambda (Left (name, func))
 
 instance Eq Value where

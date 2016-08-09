@@ -182,7 +182,7 @@ matchArgs ids (Just id) args
   | otherwise = raiseArgMismatch (S.length ids) (S.length args)
 
 defmacro :: Text -> (Seq Value -> LispM (Seq Instruction)) -> LispM ()
-defmacro sym func = globalDef' sym $ Macro (Left (sym, func))
+defmacro sym func = symToID sym >>= \id -> globalDef id $ Macro (Left (id, func))
 
 defmacroN :: Int -> Text -> (Seq Value -> LispM (Seq Instruction)) -> LispM ()
 defmacroN n sym func =
@@ -203,7 +203,7 @@ defmacro3 :: Text -> (Value -> Value -> Value -> LispM (Seq Instruction)) -> Lis
 defmacro3 sym func = defmacroN 3 sym $ \[x, y, z] -> func x y z
 
 defun :: Text -> (Seq Value -> LispM Value) -> LispM ()
-defun sym func = globalDef' sym $ Lambda (Left (sym, func))
+defun sym func = symToID sym >>= \id -> globalDef id $ Lambda (Left (id, func))
 
 defunN :: Int -> Text -> (Seq Value -> LispM Value) -> LispM ()
 defunN n sym func =
@@ -242,12 +242,14 @@ display (DottedList x xs y) = do
   text <- display y
   return $ "(" <> intercalate " " texts <> " . " <> text <> ")"
 display (Lambda (Left (n, _))) = do
-  return $ "#<native function: " <> n <> ">"
+  sym <- idToSym n
+  return $ "#<native function: " <> sym <> ">"
 display (Lambda (Right (CompiledFunction _ _ _ src, _))) = do
   displayed <- display src
   return $ "#<" <> displayed <> ">"
 display (Macro (Left (n, _))) = do
-  return $ "#<native macro: " <> n <> ">"
+  sym <- idToSym n
+  return $ "#<native macro: " <> sym <> ">"
 display (Macro (Right (CompiledFunction _ _ _ src, _))) = do
   displayed <- display src
   return $ "#<" <> displayed <> ">"

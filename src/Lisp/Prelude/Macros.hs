@@ -105,7 +105,8 @@ compileSyntaxQuote arg = do
   splat <- symbol "unquote-splat"
   cons <- symToID "cons"
   append <- symToID "append"
-  let quotef = function "quote-first" $ \vals -> do
+  quoteFirst <- symToID "quote-first"
+  let quotef = function quoteFirst $ \vals -> do
         when (S.length vals /= 1) $ raiseArgMismatch 1 (S.length vals)
         case S.index vals 0 of
           (List car []) -> return $ Quote car
