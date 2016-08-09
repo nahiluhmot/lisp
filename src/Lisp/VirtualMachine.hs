@@ -75,8 +75,12 @@ evalInstruction _ Raise = do
     (Symbol sym, String msg) -> raise' sym msg
     (Symbol _, given) -> raiseTypeMismatch "string" given
     (given, _) -> raiseTypeMismatch "symbol" given
-evalInstruction pc (PushErrorHandler func) =
-  succ pc <$ modify (\state -> state { errorHandlers = func : errorHandlers state })
+evalInstruction pc PushErrorHandler = succ pc <$ do
+  val <- pop
+  case val of
+    (Lambda func) ->
+      modify $ \state -> state { errorHandlers = func : errorHandlers state }
+    _ -> raiseTypeMismatch "lambda" val
 evalInstruction pc PopErrorHandler = succ pc <$ do
   state <- get
   when (P.null $ errorHandlers state) raiseNoErrorHandlers

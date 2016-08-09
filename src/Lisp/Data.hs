@@ -52,7 +52,7 @@ data Instruction = Noop
                  | Return
                  | Recur Int
                  | Raise
-                 | PushErrorHandler Function
+                 | PushErrorHandler
                  | PopErrorHandler
 
 type Env = IntMap Value
