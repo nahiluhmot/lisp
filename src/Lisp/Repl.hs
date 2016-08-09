@@ -8,7 +8,6 @@ import Control.Monad.Except
 import qualified Data.Foldable as F
 import Data.Text
 import Data.Text.IO
-import System.IO (hFlush, stdout)
 
 import Lisp.Data
 import Lisp.Monad
@@ -17,28 +16,21 @@ import Lisp.Compiler
 import Lisp.Prelude
 import Lisp.VirtualMachine
 
+replSource :: Text
+replSource = "\
+  \(def repl (lambda ()\
+    \(let ((go (lambda () (puts (eval (read (gets)))) (recur))))\
+      \(puts \"Welcome to the Lisp REPL!\")\
+      \(on-error (lambda (err) (puts err) (go))\
+        \(go)))))\
+  \(repl)\
+\ "
+
 repl :: IO ()
-repl =
-  let go state = do
-        (result, state') <- flip runLispM state $ do
-          liftIO (putStr "> " >> hFlush stdout >> getLine) >>=
-            parse >>=
-            F.foldlM (\_ sexp -> compile sexp >>= eval) Nil >>=
-            printVal
-        case result of
-          Left err -> do
-            (result', _) <- runLispM (display (Error err)) (state')
-            case result' of
-              Left err' ->
-                putStrLn $ "Ironic error displaying evaluation error: " `mappend` pack (show err')
-              Right displayed -> putStrLn displayed
-          _ -> return ()
-        go state'
-      welcome = putStrLn "Welcome to the Lisp REPL!"
-  in  do
-    welcome
-    (result, state) <- runLispM defPrelude emptyLispState
-    case result of
-      Left err -> do
-        putStrLn $ "*** error adding core language: " `append` pack (show err)
-      Right _ -> go state
+repl = do
+  putStrLn "Welcome to the Lisp REPL!"
+  (result, _) <- runLispM (defPrelude >> (parse replSource >>= mapM_ (compile >=> eval))) emptyLispState
+  case result of
+    Left err -> do
+      putStrLn $ "*** unhandled error: " `append` pack (show err)
+    Right () -> return ()
