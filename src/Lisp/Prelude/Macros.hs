@@ -21,9 +21,9 @@ defPreludeMacros = do
     func <- compileFunc lambda vals
     return $ [MakeLambda func]
 
-  macro <- symbol "macro"
+  mac <- symbol "macro"
   defmacro "macro" $ \vals -> do
-    func <- compileFunc macro vals
+    func <- compileFunc mac vals
     return $ [MakeMacro func]
 
   defmacro1 "return" $ \val -> (|> Return) <$> compile' val
