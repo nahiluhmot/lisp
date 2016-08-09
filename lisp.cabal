@@ -27,6 +27,7 @@ library
                      , Lisp.Prelude.Bool
                      , Lisp.Prelude.Constants
                      , Lisp.Prelude.Error
+                     , Lisp.Prelude.Function
                      , Lisp.Prelude.IO
                      , Lisp.Prelude.List
                      , Lisp.Prelude.Macros

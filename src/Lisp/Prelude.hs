@@ -1,8 +1,9 @@
 module Lisp.Prelude (defPrelude) where
 
 import Lisp.Prelude.Bool
-import Lisp.Prelude.Error
 import Lisp.Prelude.Constants
+import Lisp.Prelude.Error
+import Lisp.Prelude.Function
 import Lisp.Prelude.IO
 import Lisp.Prelude.List
 import Lisp.Prelude.Macros
@@ -15,6 +16,7 @@ defPrelude = do
   defPreludeBool
   defPreludeConstants
   defPreludeError
+  defPreludeFunction
   defPreludeIO
   defPreludeList
   defPreludeMacros
