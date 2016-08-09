@@ -3,7 +3,8 @@
 
 module Lisp.Core.Error (defCoreError) where
 
-import Prelude hiding (id)
+import Prelude hiding (id, length)
+import Control.Monad.Except
 import Data.Sequence
 
 import Lisp.Compiler
@@ -12,13 +13,20 @@ import Lisp.Monad
 
 defCoreError :: LispM ()
 defCoreError = do
-  defmacro2 "raise" $ \val val' ->
-    case (val, val') of
-      (sym@(Symbol _), msg) -> do
-        compiled <- compile msg
-        return $ (Push sym <| (compiled |> Raise))
-      (given, _) ->
-        raiseTypeMismatch "symbol" given
+  defun "raise" $ \vals ->
+    case length vals of
+      1 ->
+        case index vals 0 of
+          Symbol sym -> raise' sym ""
+          String str -> raise "runtime-error" str
+          Error err -> throwError err
+          val -> raiseTypeMismatch "symbol | string | error" val
+      2 ->
+        case (index vals 0, index vals 1) of
+          (Symbol sym, String msg) -> raise' sym msg
+          (Symbol _, val) -> raiseTypeMismatch "string" val
+          (val, _) -> raiseTypeMismatch "symbol" val
+      n -> raiseArgMismatch 1 n
 
   defmacro "on-error" $ \vals ->
     case viewl vals of
