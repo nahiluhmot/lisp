@@ -22,9 +22,9 @@ replSource = "\
                  \(print \"> \")\
                  \(puts (eval (read (gets))))\
                  \(recur))))\
-      \(puts \"Welcome to the Lisp REPL!\")\
-      \(on-error (lambda (err) (puts err) (go))\
+      \(on-error (lambda (err) (puts err) (repl))\
         \(go)))))\
+  \(puts \"Welcome to the Lisp REPL!\")\
   \(repl)\
 \ "
 
