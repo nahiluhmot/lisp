@@ -20,6 +20,14 @@ defCoreError = do
       (given, _) ->
         raiseTypeMismatch "symbol" given
 
+  defmacro "on-error" $ \vals ->
+    case viewl vals of
+      EmptyL -> raiseArgMismatch 1 0
+      (handler :< body) -> do
+        handler' <- compile handler
+        body' <- compileValues body
+        return $ (handler' |> PushErrorHandler) >< (body' |> PopErrorHandler)
+
   defun1 "error-type" $ \val ->
     case val of
       (Error (LispError typ _)) -> return $ Symbol typ
