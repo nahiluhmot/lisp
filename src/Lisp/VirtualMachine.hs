@@ -15,18 +15,16 @@ import Lisp.Monad
 eval :: Seq Instruction -> LispM Value
 eval insns =
   let evalIndex pc
-        | (pc >= S.length insns) || (pc < 0) = do
-          state <- get
-          return $
-            case viewl $ stack state of
-              EmptyL -> Nil
-              (first :< _) -> first
+        | (pc >= S.length insns) || (pc < 0) = return ()
         | otherwise = evalInstruction pc (index insns pc) >>= evalIndex
-  in  flip catchError handleError $ do
+  in   do
     old <- get
     put $ old { stack = S.empty }
-    result <- evalIndex 0
-    modify $ \state -> state { stack = stack old }
+    catchError (evalIndex 0) handleError
+    new <- get
+    let result | S.null (stack new) = Nil
+               | otherwise = S.index (stack new) 0
+    put $ new { stack = stack old }
     return result
 
 evalInstruction :: Int -> Instruction -> LispM Int
@@ -41,9 +39,9 @@ evalInstruction pc PopScope =
     case scopes of
       [] -> raiseNoScope
       (_ : scope') -> return (succ pc, scope')
-evalInstruction pc (Def sym) = (pop >>= globalDef sym) $> succ pc
+evalInstruction pc (Def sym) = (pop >>= globalDef sym >> push (Symbol sym)) $> succ pc
 evalInstruction pc (Get sym) = (lookupSymbol sym >>= push) $> succ pc
-evalInstruction pc (Set sym) = (pop >>= localDef sym) $> succ pc
+evalInstruction pc (Set sym) = (pop >>= localDef sym >> push (Symbol sym)) $> succ pc
 evalInstruction pc (Jump idx) = return $ pc + idx
 evalInstruction pc (BranchIf idx) =
   let branchIf Nil = succ pc
@@ -96,10 +94,10 @@ funcall (Right (func@(CompiledFunction insns ids extra _), scope')) args = do
   modify $ \curr -> curr { scope = scope ours, currentFunc = currentFunc ours }
   return val
 
-handleError :: LispError -> LispM Value
+handleError :: LispError -> LispM ()
 handleError err =
   let go [] = throwError err
       go (handler : handlers) = do
         modify $ \state -> state { errorHandlers = handlers }
         funcall handler . singleton $ Error err
-  in  gets errorHandlers >>= go
+  in  gets errorHandlers >>= go >>= push
