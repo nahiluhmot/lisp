@@ -224,7 +224,8 @@ defun3 :: Text -> (Value -> Value -> Value -> LispM Value) -> LispM ()
 defun3 sym func = defunN 3 sym $ \[x, y, z] -> func x y z
 
 printVal :: Value -> LispM ()
-printVal = liftIO . IO.putStrLn <=< display
+printVal (String str) = liftIO $ IO.putStrLn str
+printVal val = display val >>= liftIO . IO.putStrLn
 
 display :: Value -> LispM Text
 display Nil = return "()"
