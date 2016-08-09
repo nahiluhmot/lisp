@@ -19,3 +19,13 @@ defCoreError = do
         return $ (Push sym <| (compiled |> Raise))
       (given, _) ->
         raiseTypeMismatch "symbol" given
+
+  defun1 "error-type" $ \val ->
+    case val of
+      (Error (LispError typ _)) -> return $ Symbol typ
+      _ -> raiseTypeMismatch "error" val
+
+  defun1 "error-message" $ \val ->
+    case val of
+      (Error (LispError _ msg)) -> return $ String msg
+      _ -> raiseTypeMismatch "error" val
