@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lisp.VirtualMachine (eval) where
+module Lisp.VirtualMachine (eval, funcall) where
 
 import Control.Monad.State.Strict hiding (state)
 import Data.Functor
@@ -53,22 +53,9 @@ evalInstruction pc (BranchUnless idx) =
   in  branchUnless <$> pop
 evalInstruction pc (MakeLambda func) = (gets scope >>= push . Lambda (Right func)) $> succ pc
 evalInstruction pc (MakeMacro mac) = (gets scope >>= push . Macro (Right mac)) $> succ pc
-evalInstruction pc (Funcall argc) = do
+evalInstruction pc (Funcall argc) = succ pc <$ do
   (fn :< args) <- fmap viewl . popN $ succ argc
-  case fn of
-    Lambda (Left (_, run)) _ -> run args >>= push
-    Lambda (Right func@(CompiledFunction insns ids extra _)) scope' -> do
-      currScope <- matchArgs ids extra args
-      ours <- get
-      put $ ours { scope = currScope : scope', currentFunc = Just func }
-      val <- eval insns
-      modify $ \curr->
-        curr { scope = scope ours
-             , stack = val <| stack ours
-             , currentFunc = currentFunc ours
-             }
-    val -> raiseTypeMismatch "lambda" val
-  return $ succ pc
+  funcall fn args >>= push
 evalInstruction _ Return = return (-1)
 evalInstruction _ (Recur argc) = 0 <$ do
   result <- gets currentFunc
@@ -80,3 +67,14 @@ evalInstruction _ Raise = do
     (Symbol sym, String msg) -> raise' sym msg
     (Symbol _, given) -> raiseTypeMismatch "string" given
     (given, _) -> raiseTypeMismatch "symbol" given
+
+funcall :: Value -> Seq Value -> LispM Value
+funcall (Lambda (Left (_, run)) _) args = run args
+funcall (Lambda (Right func@(CompiledFunction insns ids extra _)) scope') args = do
+  currScope <- matchArgs ids extra args
+  ours <- get
+  put $ ours { scope = currScope : scope', currentFunc = Just func }
+  val <- eval insns
+  modify $ \curr -> curr { scope = scope ours, currentFunc = currentFunc ours }
+  return val
+funcall val _ = raiseTypeMismatch "lambda" val
