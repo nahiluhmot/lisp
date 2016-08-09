@@ -2,6 +2,7 @@
 
 module Lisp.VirtualMachine (eval, funcall) where
 
+import Prelude as P
 import Control.Monad.State.Strict hiding (state)
 import Data.Functor
 import Data.Sequence as S
@@ -67,6 +68,12 @@ evalInstruction _ Raise = do
     (Symbol sym, String msg) -> raise' sym msg
     (Symbol _, given) -> raiseTypeMismatch "string" given
     (given, _) -> raiseTypeMismatch "symbol" given
+evalInstruction pc (PushErrorHandler func) =
+  succ pc <$ modify (\state -> state { errorHandlers = func : errorHandlers state })
+evalInstruction pc PopErrorHandler = succ pc <$ do
+  state <- get
+  when (P.null $ errorHandlers state) raiseNoErrorHandlers
+  put $ state { errorHandlers = tail $ errorHandlers state }
 
 funcall :: Value -> Seq Value -> LispM Value
 funcall (Lambda (Left (_, run)) _) args = run args

@@ -43,6 +43,9 @@ raiseUnsetSymbol id = raise "internal-error" $ "Cannot find symbol with ID: " <>
 raiseNoScope :: LispM a
 raiseNoScope = raise "internal-error" $ "No local scope"
 
+raiseNoErrorHandlers :: LispM a
+raiseNoErrorHandlers = raise "internal-error" "No error handlers"
+
 raiseUndefinedValue :: Text -> LispM a
 raiseUndefinedValue name =
   raise "undefined-value" $ "`" <> name <> "` is not in scope"
