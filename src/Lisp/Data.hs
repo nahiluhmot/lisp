@@ -52,14 +52,17 @@ data Instruction = Noop
                  | Return
                  | Recur Int
                  | Raise
+                 | PushErrorHandler Function
+                 | PopErrorHandler
 
 type Env = IntMap Value
 
-data LispState = LispState { symbolTable :: SymbolTable Text
-                           , globals     :: Env
-                           , scope       :: [Env]
-                           , stack       :: Seq Value
-                           , currentFunc :: Maybe CompiledFunction
+data LispState = LispState { symbolTable   :: SymbolTable Text
+                           , globals       :: Env
+                           , scope         :: [Env]
+                           , stack         :: Seq Value
+                           , currentFunc   :: Maybe CompiledFunction
+                           , errorHandlers :: [Function]
                            }
 
 data LispError = LispError { errType :: Int, errMessage :: Text }
@@ -74,6 +77,7 @@ emptyLispState =
             , scope = []
             , stack = S.empty
             , currentFunc = Nothing
+            , errorHandlers = []
             }
 
 list :: Seq Value -> Value
