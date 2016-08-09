@@ -4,6 +4,7 @@ module Lisp.Prelude.Meta (defPreludeMeta) where
 
 import Control.Monad.Except
 import Data.Foldable
+import Data.Sequence as S
 
 import Lisp.Data
 import Lisp.Monad
@@ -31,6 +32,13 @@ defPreludeMeta = do
     case toSeq sexp of
       Left _ -> raiseCompileDottedList sexp
       Right vs -> foldlM (const $ compile >=> eval) Nil vs
+
+  defun "id" $ \sexp ->
+    case viewl sexp of
+      EmptyL -> return Nil
+      (car :< cdr)
+        | S.null cdr -> return car
+        | otherwise -> return $ List car cdr
 
 typeOf :: Value -> LispM Value
 typeOf Nil = symbol "nil"
