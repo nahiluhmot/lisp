@@ -44,10 +44,7 @@ compileFuncall fn@(List _ _) args =
   fmap (|> Funcall (length args)) $ (><) <$> compile fn <*> compileValues args
 compileFuncall (Symbol fn) args =
   let macroExpand (Macro (Left (_, native))) = Just $ native args
-      macroExpand (Macro (Right func)) =
-        let insns = Push (Lambda (Right func))
-                 <| (fmap Push args |> Funcall (length args))
-        in  Just $ eval insns >>= compile
+      macroExpand (Macro (Right func)) = Just $ funcall (Right func) args >>= compile
       macroExpand _ = Nothing
       makeFuncall = (|> Funcall (length args)) <$> ((Get fn <|) <$> compileValues' args)
   in  lookupSymbol' fn >>= \val -> fromMaybe makeFuncall $ val >>= macroExpand

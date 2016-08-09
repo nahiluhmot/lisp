@@ -60,7 +60,9 @@ evalInstruction pc (MakeMacro func) = succ pc <$ do
   push $ Macro (Right (func, envs))
 evalInstruction pc (Funcall argc) = succ pc <$ do
   (fn :< args) <- fmap viewl . popN $ succ argc
-  funcall fn args >>= push
+  case fn of
+    (Lambda func) -> funcall func args >>= push
+    _ -> raiseTypeMismatch "lambda" fn
 evalInstruction _ Return = return (-1)
 evalInstruction _ (Recur argc) = 0 <$ do
   result <- gets currentFunc
@@ -79,13 +81,12 @@ evalInstruction pc PopErrorHandler = succ pc <$ do
   when (P.null $ errorHandlers state) raiseNoErrorHandlers
   put $ state { errorHandlers = tail $ errorHandlers state }
 
-funcall :: Value -> Seq Value -> LispM Value
-funcall (Lambda (Left (_, run))) args = run args
-funcall (Lambda (Right (func@(CompiledFunction insns ids extra _), scope'))) args = do
+funcall :: Function -> Seq Value -> LispM Value
+funcall (Left (_, run)) args = run args
+funcall (Right (func@(CompiledFunction insns ids extra _), scope')) args = do
   currScope <- matchArgs ids extra args
   ours <- get
   put $ ours { scope = currScope : scope', currentFunc = Just func }
   val <- eval insns
   modify $ \curr -> curr { scope = scope ours, currentFunc = currentFunc ours }
   return val
-funcall val _ = raiseTypeMismatch "lambda" val
