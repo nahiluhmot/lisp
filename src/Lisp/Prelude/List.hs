@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLists #-}
 
-module Lisp.Core.List (defCoreList) where
+module Lisp.Prelude.List (defPreludeList) where
 
 import Control.Monad
 import Prelude hiding (length, last)
@@ -11,8 +11,8 @@ import Data.Ratio
 import Lisp.Data
 import Lisp.Monad
 
-defCoreList :: LispM ()
-defCoreList = do
+defPreludeList :: LispM ()
+defPreludeList = do
   defun2 "cons" $ \a b ->
     case b of
       Nil -> return $ List a []

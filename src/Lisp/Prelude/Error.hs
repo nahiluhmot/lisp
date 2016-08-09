@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lisp.Core.Error (defCoreError) where
+module Lisp.Prelude.Error (defPreludeError) where
 
 import Prelude hiding (id, length)
 import Control.Monad.Except
@@ -11,8 +11,8 @@ import Lisp.Compiler
 import Lisp.Data
 import Lisp.Monad
 
-defCoreError :: LispM ()
-defCoreError = do
+defPreludeError :: LispM ()
+defPreludeError = do
   defun "raise" $ \vals ->
     case length vals of
       1 ->

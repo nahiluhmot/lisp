@@ -23,15 +23,15 @@ library
                      , Lisp.Compiler
                      , Lisp.VirtualMachine
                      , Lisp.Parser
-                     , Lisp.Core
-                     , Lisp.Core.Bool
-                     , Lisp.Core.Constants
-                     , Lisp.Core.Error
-                     , Lisp.Core.IO
-                     , Lisp.Core.List
-                     , Lisp.Core.Macros
-                     , Lisp.Core.Math
-                     , Lisp.Core.Meta
+                     , Lisp.Prelude
+                     , Lisp.Prelude.Bool
+                     , Lisp.Prelude.Constants
+                     , Lisp.Prelude.Error
+                     , Lisp.Prelude.IO
+                     , Lisp.Prelude.List
+                     , Lisp.Prelude.Macros
+                     , Lisp.Prelude.Math
+                     , Lisp.Prelude.Meta
                      , Lisp.Repl
   build-depends:       base >= 4.7 && < 5
                      , text >= 1.2 && < 2

@@ -1,15 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Lisp.Core.Bool (defCoreBool) where
+module Lisp.Prelude.Bool (defPreludeBool) where
 
 import Data.Text
 
 import Lisp.Data
 import Lisp.Monad
 
-defCoreBool :: LispM ()
-defCoreBool = do
+defPreludeBool :: LispM ()
+defPreludeBool = do
   defBinBool' "==" (==)
   defBinBool' "!=" (/=)
   defNumToBool' ">" (>)

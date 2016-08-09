@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lisp.Core.Meta (defCoreMeta) where
+module Lisp.Prelude.Meta (defPreludeMeta) where
 
 import Control.Monad.Except
 import Data.Foldable
@@ -11,8 +11,8 @@ import Lisp.Parser
 import Lisp.Compiler
 import Lisp.VirtualMachine
 
-defCoreMeta :: LispM ()
-defCoreMeta = do
+defPreludeMeta :: LispM ()
+defPreludeMeta = do
   defun1 "type-of" typeOf
 
   defun1 "intern" $ \val ->

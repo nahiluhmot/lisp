@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE TupleSections #-}
 
-module Lisp.Core.Macros (defCoreMacros) where
+module Lisp.Prelude.Macros (defPreludeMacros) where
 
 import Prelude hiding (id, last)
 import Control.Monad
@@ -14,8 +14,8 @@ import Lisp.Data
 import Lisp.Monad
 import Lisp.Compiler
 
-defCoreMacros :: LispM ()
-defCoreMacros = do
+defPreludeMacros :: LispM ()
+defPreludeMacros = do
   lambda <- symbol "lambda"
   defmacro "lambda" $ \vals -> do
     func <- compileFunc lambda vals

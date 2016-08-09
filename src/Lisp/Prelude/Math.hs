@@ -1,15 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Lisp.Core.Math (defCoreMath) where
+module Lisp.Prelude.Math (defPreludeMath) where
 
 import Data.Text
 
 import Lisp.Data
 import Lisp.Monad
 
-defCoreMath :: LispM ()
-defCoreMath = do
+defPreludeMath :: LispM ()
+defPreludeMath = do
   defBinMath "+" (+)
   defBinMath "-" (-)
   defBinMath "*" (*)

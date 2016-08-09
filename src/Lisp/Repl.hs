@@ -14,7 +14,7 @@ import Lisp.Data
 import Lisp.Monad
 import Lisp.Parser
 import Lisp.Compiler
-import Lisp.Core
+import Lisp.Prelude
 import Lisp.VirtualMachine
 
 repl :: IO ()
@@ -37,7 +37,7 @@ repl =
       welcome = putStrLn "Welcome to the Lisp REPL!"
   in  do
     welcome
-    (result, state) <- runLispM defCore emptyLispState
+    (result, state) <- runLispM defPrelude emptyLispState
     case result of
       Left err -> do
         putStrLn $ "*** error adding core language: " `append` pack (show err)

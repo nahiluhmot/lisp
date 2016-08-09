@@ -1,11 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lisp.Core.Constants (defCoreConstants) where
+module Lisp.Prelude.Constants (defPreludeConstants) where
 
 import Lisp.Data
 import Lisp.Monad
 
-defCoreConstants :: LispM ()
-defCoreConstants = do
+defPreludeConstants :: LispM ()
+defPreludeConstants = do
   globalDef' "nil" Nil
   symToID "t" >>= \id -> globalDef id $ Symbol id
