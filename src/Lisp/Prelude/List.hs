@@ -44,8 +44,8 @@ defPreludeList = do
           case (fromIntegral $ numerator rational, length vals') of
             (0, _) -> return $ val
             (n, len)
-              | n > len -> raiseIndexOutOfBounds n (pred len)
-              | n < 0 -> raiseIndexOutOfBounds n (pred len)
+              | n > len -> raiseIndexOutOfBounds n len
+              | n < 0 -> raiseIndexOutOfBounds n len
               | otherwise -> return $ index vals' (pred n)
       (List _ _, val) -> raiseTypeMismatch "positive integer" val
       (val, _) -> raiseTypeMismatch "list" val
