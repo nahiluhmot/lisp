@@ -33,6 +33,16 @@ defPreludeMeta = do
       Left _ -> raiseCompileDottedList sexp
       Right vs -> foldlM (const $ compile >=> eval) Nil vs
 
+  defun1 "macro-expand" $ \sexp ->
+    case sexp of
+      List (Symbol id) cdr -> flip catchError (const $ return sexp) $ do
+        val <- lookupSymbol id
+        case val of
+          Macro (Right func) ->
+            funcall (Right func) cdr
+          _ -> return val
+      val -> return val
+
   defun "id" $ \sexp ->
     case viewl sexp of
       EmptyL -> return Nil
