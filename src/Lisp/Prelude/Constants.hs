@@ -8,5 +8,5 @@ import Lisp.Core
 
 defPreludeConstants :: LispM ()
 defPreludeConstants = do
-  globalDef' "nil" Nil
-  symToID "t" >>= \id -> globalDef id $ Symbol id
+  def' "nil" Nil
+  symToID "t" >>= \id -> def id $ Symbol id

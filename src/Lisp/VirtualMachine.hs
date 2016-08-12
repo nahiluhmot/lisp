@@ -39,7 +39,7 @@ evalInstruction pc PopScope =
     case scopes of
       [] -> raiseNoScope
       (_ : scope') -> return (succ pc, scope')
-evalInstruction pc (Def sym) = (pop >>= globalDef sym >> push (Symbol sym)) $> succ pc
+evalInstruction pc (Def sym) = (pop >>= def sym >> push (Symbol sym)) $> succ pc
 evalInstruction pc (Get sym) = (lookupSymbol sym >>= push) $> succ pc
 evalInstruction pc (Set sym) = (pop >>= localDef sym >> push (Symbol sym)) $> succ pc
 evalInstruction pc (Jump idx) = return $ pc + idx

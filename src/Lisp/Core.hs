@@ -163,13 +163,13 @@ localDef' defs =
     when (P.null envs) raiseNoScope
     return ((), IM.union defs (head envs) : tail envs)
 
-globalDef :: Int -> Value -> LispM ()
-globalDef key val =
+def :: Int -> Value -> LispM ()
+def key val =
   modify $ \state ->
     state { globals = IM.insert key val $ globals state }
 
-globalDef' :: Text -> Value -> LispM ()
-globalDef' key val = symToID key >>= flip globalDef val
+def' :: Text -> Value -> LispM ()
+def' key val = symToID key >>= flip def val
 
 matchArgs :: Seq Int -> Maybe Int -> Seq Value -> LispM (IM.IntMap Value)
 matchArgs ids Nothing args
@@ -182,7 +182,7 @@ matchArgs ids (Just id) args
   | otherwise = raiseArgMismatch (S.length ids) (S.length args)
 
 defmacro :: Text -> (Seq Value -> LispM (Seq Instruction)) -> LispM ()
-defmacro sym func = symToID sym >>= \id -> globalDef id $ Macro (Left (id, func))
+defmacro sym func = symToID sym >>= \id -> def id $ Macro (Left (id, func))
 
 defmacroN :: Int -> Text -> (Seq Value -> LispM (Seq Instruction)) -> LispM ()
 defmacroN n sym func =
@@ -203,7 +203,7 @@ defmacro3 :: Text -> (Value -> Value -> Value -> LispM (Seq Instruction)) -> Lis
 defmacro3 sym func = defmacroN 3 sym $ \[x, y, z] -> func x y z
 
 defun :: Text -> (Seq Value -> LispM Value) -> LispM ()
-defun sym func = symToID sym >>= \id -> globalDef id $ Lambda (Left (id, func))
+defun sym func = symToID sym >>= \id -> def id $ Lambda (Left (id, func))
 
 defunN :: Int -> Text -> (Seq Value -> LispM Value) -> LispM ()
 defunN n sym func =
@@ -224,7 +224,6 @@ defun3 :: Text -> (Value -> Value -> Value -> LispM Value) -> LispM ()
 defun3 sym func = defunN 3 sym $ \[x, y, z] -> func x y z
 
 printVal :: Value -> LispM ()
-printVal (String str) = liftIO $ IO.putStrLn str
 printVal val = display val >>= liftIO . IO.putStrLn
 
 display :: Value -> LispM Text
