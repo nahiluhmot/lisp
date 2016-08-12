@@ -33,6 +33,7 @@ defPreludeMacros = do
       Symbol sym -> (|> Def sym) <$> compile' val
       val' -> raiseTypeMismatch "symbol" val'
 
+  defmacro "do" compileValues
   defmacro "if" compileIf
   defmacro "recur" compileRecur
   defmacro "let" compileLet
