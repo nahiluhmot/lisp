@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Lisp.Monad where
+module Lisp.Core where
 
 import Prelude hiding (id)
 import qualified Prelude as P

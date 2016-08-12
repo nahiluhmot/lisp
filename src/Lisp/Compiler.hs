@@ -14,7 +14,7 @@ import Data.Maybe
 import Data.Sequence
 
 import Lisp.Data
-import Lisp.Monad
+import Lisp.Core
 import Lisp.VirtualMachine
 
 compile :: Value -> LispM (Seq Instruction)

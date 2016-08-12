@@ -11,7 +11,7 @@ import Data.Sequence as S
 import Data.Foldable
 
 import Lisp.Data
-import Lisp.Monad
+import Lisp.Core
 import Lisp.Compiler
 
 defPreludeMacros :: LispM ()

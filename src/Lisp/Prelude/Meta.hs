@@ -7,7 +7,7 @@ import Data.Foldable
 import Data.Sequence as S
 
 import Lisp.Data
-import Lisp.Monad
+import Lisp.Core
 import Lisp.Parser
 import Lisp.Compiler
 import Lisp.VirtualMachine

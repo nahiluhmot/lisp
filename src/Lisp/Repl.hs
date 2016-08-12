@@ -9,7 +9,7 @@ import Data.Text
 import Data.Text.IO
 
 import Lisp.Data
-import Lisp.Monad
+import Lisp.Core
 import Lisp.Parser
 import Lisp.Compiler
 import Lisp.Prelude

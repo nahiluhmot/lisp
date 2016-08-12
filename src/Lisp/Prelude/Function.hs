@@ -6,7 +6,7 @@ import Prelude hiding (id)
 import Data.Sequence as S
 
 import Lisp.Data
-import Lisp.Monad
+import Lisp.Core
 import Lisp.VirtualMachine
 
 defPreludeFunction :: LispM ()

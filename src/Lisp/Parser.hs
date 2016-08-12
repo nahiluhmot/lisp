@@ -12,13 +12,13 @@ import Text.Parsec as P hiding (parse)
 
 import Lisp.Data hiding (list, dottedList)
 import qualified Lisp.Data as D
-import qualified Lisp.Monad as M
+import qualified Lisp.Core as C
 
 type Parser = ParsecT Text Bool LispM
 
 parse :: Text -> LispM (Seq Value)
 parse input = runParserT (values <* eof) False "*repl*" input
-          >>= either (M.raiseParseError . pack . show) return
+          >>= either (C.raiseParseError . pack . show) return
 
 values :: Parser (Seq Value)
 values = fromList <$> (spaces *> many1 (value <* spaces))
@@ -44,7 +44,7 @@ syntaxQuoted = do
   _ <- char '`' *> spaces
   inSyntaxQuoted <- getState
   when inSyntaxQuoted $ parserFail "Nested syntax quotes unsupported"
-  List <$> lift (M.symbol "syntax-quote")
+  List <$> lift (C.symbol "syntax-quote")
        <*> (S.singleton <$> (putState True *> value <* putState False))
 
 syntaxUnquoted :: Parser Value
@@ -52,7 +52,7 @@ syntaxUnquoted = do
   _ <- char ',' *> spaces
   isSyntaxQuoted <- getState
   unless isSyntaxQuoted $ parserFail "Cannot unquote outside of syntax quote"
-  List <$> lift (M.symbol "unquote")
+  List <$> lift (C.symbol "unquote")
        <*> (S.singleton <$> (putState False *> value <* putState True))
 
 syntaxSplatted :: Parser Value
@@ -60,11 +60,11 @@ syntaxSplatted = do
   _ <- string ",@" *> spaces
   isSyntaxQuoted <- getState
   unless isSyntaxQuoted $ parserFail "Cannot unquote-splat outside of syntax quote"
-  List <$> lift (M.symbol "unquote-splat")
+  List <$> lift (C.symbol "unquote-splat")
        <*> (S.singleton <$> (putState False *> value <* putState True))
 
 quoted :: Parser Value
-quoted = List <$> lift (M.symbol "quote")
+quoted = List <$> lift (C.symbol "quote")
               <*> (S.singleton <$> (char '\'' *> spaces *> value))
 
 nil :: Parser Value
@@ -82,7 +82,7 @@ dottedList =
 symbol :: Parser Value
 symbol = do
   ((:) <$> (letter <|> allowedSymbol) <*> many (alphaNum <|> allowedSymbol <|> dot)) >>=
-    (lift . M.symbol . pack)
+    (lift . C.symbol . pack)
 
 str :: Parser Value
 str = String . pack <$> (char '"' *> many (noneOf ['"']) <* char '"')

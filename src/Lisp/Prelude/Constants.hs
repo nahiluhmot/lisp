@@ -4,7 +4,7 @@ module Lisp.Prelude.Constants (defPreludeConstants) where
 
 import Prelude hiding (id)
 import Lisp.Data
-import Lisp.Monad
+import Lisp.Core
 
 defPreludeConstants :: LispM ()
 defPreludeConstants = do

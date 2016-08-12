@@ -9,7 +9,7 @@ import Data.Sequence
 import Data.Ratio
 
 import Lisp.Data
-import Lisp.Monad
+import Lisp.Core
 
 defPreludeList :: LispM ()
 defPreludeList = do

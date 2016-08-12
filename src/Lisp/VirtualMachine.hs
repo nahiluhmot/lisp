@@ -10,7 +10,7 @@ import Data.Sequence as S
 import qualified Data.IntMap.Strict as IM
 
 import Lisp.Data
-import Lisp.Monad
+import Lisp.Core
 
 eval :: Seq Instruction -> LispM Value
 eval insns =

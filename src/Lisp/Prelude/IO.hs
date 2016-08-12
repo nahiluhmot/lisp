@@ -8,7 +8,7 @@ import qualified Data.Text.IO as IO
 import System.IO (hFlush, stdout)
 
 import Lisp.Data
-import Lisp.Monad
+import Lisp.Core
 
 defPreludeIO :: LispM ()
 defPreludeIO = do

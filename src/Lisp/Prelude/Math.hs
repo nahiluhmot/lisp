@@ -6,7 +6,7 @@ module Lisp.Prelude.Math (defPreludeMath) where
 import Data.Text
 
 import Lisp.Data
-import Lisp.Monad
+import Lisp.Core
 
 defPreludeMath :: LispM ()
 defPreludeMath = do

@@ -6,7 +6,7 @@ module Lisp.Prelude.Bool (defPreludeBool) where
 import Data.Text
 
 import Lisp.Data
-import Lisp.Monad
+import Lisp.Core
 
 defPreludeBool :: LispM ()
 defPreludeBool = do

@@ -9,7 +9,7 @@ import Data.Sequence
 
 import Lisp.Compiler
 import Lisp.Data
-import Lisp.Monad
+import Lisp.Core
 
 defPreludeError :: LispM ()
 defPreludeError = do
