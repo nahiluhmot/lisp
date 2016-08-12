@@ -21,9 +21,6 @@ import Numeric (fromRat)
 import Lisp.Data
 import qualified Lisp.SymbolTable as ST
 
-runLispM :: LispM a -> LispState -> IO (Either LispError a, LispState)
-runLispM comp = runStateT (runExceptT comp)
-
 raise :: Text -> Text -> LispM a
 raise sym msg = symToID sym >>= \id -> raise' id msg
 

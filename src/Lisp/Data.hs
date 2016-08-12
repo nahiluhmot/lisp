@@ -8,6 +8,7 @@ import Data.Sequence as S
 import Data.Text
 import Data.IntMap.Strict as IM
 
+import Lisp.Monad
 import Lisp.SymbolTable as ST
 
 data Value = Nil
@@ -68,7 +69,7 @@ data LispState = LispState { symbolTable   :: SymbolTable Text
 data LispError = LispError { errType :: Int, errMessage :: Text }
                  deriving (Eq, Show)
 
-type LispM = ExceptT LispError (StateT LispState IO)
+type LispM = LispT LispError LispState IO
 
 emptyLispState :: LispState
 emptyLispState =

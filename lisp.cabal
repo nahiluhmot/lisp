@@ -18,6 +18,7 @@ library
   exposed-modules:     Lisp
   other-modules:       Lisp.Index
                      , Lisp.SymbolTable
+                     , Lisp.Monad
                      , Lisp.Data
                      , Lisp.Core
                      , Lisp.Compiler
