@@ -28,7 +28,7 @@ parseFile path = do
   either (C.raiseParseError . pack . show) return result
 
 values :: Parser (Seq Value)
-values = fromList <$> (spaces *> many1 (value <* spaces))
+values = fromList <$> (whitespace *> many1 (value <* whitespace))
 
 value :: Parser Value
 value = choice $ map try parsers
@@ -48,7 +48,7 @@ parsers = [ num
 
 syntaxQuoted :: Parser Value
 syntaxQuoted = do
-  _ <- char '`' *> spaces
+  _ <- char '`' *> whitespace
   inSyntaxQuoted <- getState
   when inSyntaxQuoted $ parserFail "Nested syntax quotes unsupported"
   List <$> lift (C.symbol "syntax-quote")
@@ -56,7 +56,7 @@ syntaxQuoted = do
 
 syntaxUnquoted :: Parser Value
 syntaxUnquoted = do
-  _ <- char ',' *> spaces
+  _ <- char ',' *> whitespace
   isSyntaxQuoted <- getState
   unless isSyntaxQuoted $ parserFail "Cannot unquote outside of syntax quote"
   List <$> lift (C.symbol "unquote")
@@ -64,7 +64,7 @@ syntaxUnquoted = do
 
 syntaxSplatted :: Parser Value
 syntaxSplatted = do
-  _ <- string ",@" *> spaces
+  _ <- string ",@" *> whitespace
   isSyntaxQuoted <- getState
   unless isSyntaxQuoted $ parserFail "Cannot unquote-splat outside of syntax quote"
   List <$> lift (C.symbol "unquote-splat")
@@ -72,10 +72,10 @@ syntaxSplatted = do
 
 quoted :: Parser Value
 quoted = List <$> lift (C.symbol "quote")
-              <*> (S.singleton <$> (char '\'' *> spaces *> value))
+              <*> (S.singleton <$> (char '\'' *> whitespace *> value))
 
 nil :: Parser Value
-nil = char '(' *> spaces *> char ')' $> Nil
+nil = char '(' *> whitespace *> char ')' $> Nil
 
 list :: Parser Value
 list = D.list <$> between (char '(')  (char ')') values
@@ -84,7 +84,7 @@ dottedList :: Parser Value
 dottedList =
   between (char '(') (char ')') $
     D.dottedList <$> values <* dot
-                 <*> between spaces spaces value
+                 <*> between whitespace whitespace value
 
 symbol :: Parser Value
 symbol = do
@@ -109,6 +109,9 @@ num = do
 
 ints :: Num a => Parser [a]
 ints = map (fromIntegral . digitToInt) <$> many1 digit
+
+whitespace :: Parser ()
+whitespace = spaces <* many ((char ';' *> manyTill (noneOf "\n") (eof <|> try (char '\n') $> ())) <* spaces)
 
 dot :: Parser Char
 dot = char '.'
