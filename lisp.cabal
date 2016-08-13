@@ -12,7 +12,9 @@ category:            Language
 build-type:          Simple
 cabal-version:       >=1.10
 data-files:          lib/prelude.lisp
+                   , lib/prelude/gensym.lisp
                    , lib/prelude/list.lisp
+                   , lib/prelude/macros.lisp
 
 library
   hs-source-dirs:      src

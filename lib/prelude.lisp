@@ -10,4 +10,6 @@
 (defmacro defun (name args . body)
   `(def ,name (lambda ,args ,@body)))
 
+(load "prelude/gensym")
 (load "prelude/list")
+(load "prelude/macros")
