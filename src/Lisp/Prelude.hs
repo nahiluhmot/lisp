@@ -6,6 +6,7 @@ import Lisp.Prelude.Error
 import Lisp.Prelude.Function
 import Lisp.Prelude.IO
 import Lisp.Prelude.List
+import Lisp.Prelude.Load
 import Lisp.Prelude.Macros
 import Lisp.Prelude.Math
 import Lisp.Prelude.Meta
@@ -19,6 +20,7 @@ defPrelude = do
   defPreludeFunction
   defPreludeIO
   defPreludeList
+  defPreludeLoad
   defPreludeMacros
   defPreludeMath
   defPreludeMeta

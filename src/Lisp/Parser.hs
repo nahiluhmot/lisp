@@ -1,13 +1,14 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lisp.Parser (parse) where
+module Lisp.Parser (parse, parseFile) where
 
 import Control.Monad.State.Strict hiding (state)
 import Data.Char (digitToInt)
 import Data.Functor
 import Data.Sequence as S
 import Data.Text hiding (foldl, foldr, map)
+import Data.Text.IO as IO
 import Text.Parsec as P hiding (parse)
 
 import Lisp.Data hiding (list, dottedList)
@@ -19,6 +20,12 @@ type Parser = ParsecT Text Bool LispM
 parse :: Text -> LispM (Seq Value)
 parse input = runParserT (values <* eof) False "*repl*" input
           >>= either (C.raiseParseError . pack . show) return
+
+parseFile :: FilePath -> LispM (Seq Value)
+parseFile path = do
+  input <- liftIO $ IO.readFile path
+  result <- runParserT (values <* eof) False path input
+  either (C.raiseParseError . pack . show) return result
 
 values :: Parser (Seq Value)
 values = fromList <$> (spaces *> many1 (value <* spaces))
