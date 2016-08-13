@@ -7,10 +7,10 @@ import Control.Monad.Except
 import Data.Foldable
 import Data.Monoid
 import Data.Sequence
-import Data.Text (Text, pack, unpack)
-import qualified Data.Text.IO as IO
+import Data.Text (pack, unpack)
 import System.Directory
 import System.FilePath.Posix
+import Paths_lisp
 
 import Lisp.Data
 import Lisp.Core
@@ -20,11 +20,10 @@ import Lisp.Parser
 
 defPreludeLoad :: LispM ()
 defPreludeLoad = do
-  home <- liftIO getHomeDirectory
-  pwd <- liftIO getCurrentDirectory
+  lib <- liftIO $ getDataFileName "lib/"
   loadPath <- symToID "*load-path*"
 
-  def loadPath $ list . fmap (String . pack) $ [joinPath [home, ".lisp", "src"], pwd]
+  def loadPath $ list . fmap (String . pack) $ [lib]
 
   defun1 "load" $ \val -> do
     case val of

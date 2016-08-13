@@ -1,12 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lisp.VirtualMachine (eval, funcall) where
+module Lisp.VirtualMachine (eval, funcall, funcallByName) where
 
 import Prelude as P
 import Control.Monad.Except
 import Control.Monad.State.Strict hiding (state)
 import Data.Functor
 import Data.Sequence as S
+import Data.Text (Text)
 import qualified Data.IntMap.Strict as IM
 
 import Lisp.Data
@@ -93,6 +94,14 @@ funcall (Right (func@(CompiledFunction insns ids extra _), scope')) args = do
   val <- eval insns
   modify $ \curr -> curr { scope = scope ours, currentFunc = currentFunc ours }
   return val
+
+funcallByName :: Text -> Seq Value -> LispM Value
+funcallByName name args = do
+  symbolID <- symToID name
+  value <- lookupSymbol symbolID
+  case value of
+    Lambda func -> funcall func args
+    _ -> raiseTypeMismatch "function" value
 
 handleError :: LispError -> LispM ()
 handleError err =

@@ -10,8 +10,8 @@ maintainer:          hulihan.tom159@gmail.com
 copyright:           2016 Tom Hulihan
 category:            Language
 build-type:          Simple
--- extra-source-files:
 cabal-version:       >=1.10
+data-files:          lib/prelude.lisp
 
 library
   hs-source-dirs:      src
@@ -35,6 +35,7 @@ library
                      , Lisp.Prelude.Math
                      , Lisp.Prelude.Meta
                      , Lisp.Repl
+                     , Paths_lisp
   build-depends:       base >= 4.7 && < 5
                      , text >= 1.2 && < 2
                      , containers >= 0.5 && < 1

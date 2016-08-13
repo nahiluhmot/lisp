@@ -1,3 +1,6 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLists #-}
+
 module Lisp.Prelude (defPrelude) where
 
 import Lisp.Prelude.Bool
@@ -11,6 +14,7 @@ import Lisp.Prelude.Macros
 import Lisp.Prelude.Math
 import Lisp.Prelude.Meta
 import Lisp.Data
+import Lisp.VirtualMachine
 
 defPrelude :: LispM ()
 defPrelude = do
@@ -24,3 +28,7 @@ defPrelude = do
   defPreludeMacros
   defPreludeMath
   defPreludeMeta
+
+  funcallByName "load" [String "prelude"]
+
+  return ()
