@@ -16,6 +16,7 @@ data-files:          lib/prelude.lisp
                    , lib/prelude/list.lisp
                    , lib/prelude/macros.lisp
                    , lib/prelude/function.lisp
+                   , lib/prelude/repl.lisp
 
 library
   hs-source-dirs:      src

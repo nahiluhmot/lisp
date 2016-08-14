@@ -14,3 +14,4 @@
 (load "prelude/list")
 (load "prelude/macros")
 (load "prelude/function")
+(load "prelude/repl")
