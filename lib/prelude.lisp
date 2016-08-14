@@ -13,3 +13,4 @@
 (load "prelude/gensym")
 (load "prelude/list")
 (load "prelude/macros")
+(load "prelude/function")
