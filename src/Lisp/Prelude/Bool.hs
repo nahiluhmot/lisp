@@ -16,7 +16,7 @@ defPreludeBool = do
   defNumToBool' "<" (<)
   defNumToBool' ">=" (>=)
   defNumToBool' "<=" (<=)
-  defun1 "not" $ \arg -> boolToValue $ arg /= Nil
+  defun1 "not" $ \arg -> boolToValue $ arg == Nil
 
 boolToValue :: Bool -> LispM Value
 boolToValue True = symbol "t"
