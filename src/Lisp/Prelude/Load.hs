@@ -21,9 +21,9 @@ import Lisp.Parser
 defPreludeLoad :: LispM ()
 defPreludeLoad = do
   lib <- liftIO $ getDataFileName "lib/"
+  cwd <- liftIO $ getCurrentDirectory
   loadPath <- symToID "*load-path*"
-
-  def loadPath $ list . fmap (String . pack) $ [lib]
+  def loadPath $ list . fmap (String . pack) $ [lib, cwd]
 
   defun1 "load" $ \val -> do
     case val of
