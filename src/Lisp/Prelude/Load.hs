@@ -43,10 +43,17 @@ defPreludeLoad = do
       _ -> raiseTypeMismatch "string" val
 
 lookupFile :: Value -> FilePath -> LispM (Maybe FilePath)
-lookupFile (String dir) path = do
-  let fullPath = joinPath [unpack dir, addExtension path ".lisp"]
-  exists <- liftIO $ doesFileExist fullPath
-  return $ if exists then Just fullPath else Nothing
+lookupFile (String dir) path =
+  let dir' = unpack dir
+      paths :: [FilePath]
+      paths = [ joinPath [dir', addExtension path ".lisp"]
+              , joinPath [dir', path]
+              ]
+      go Nothing path = do
+        exists <- liftIO $ doesFileExist path
+        return $ if exists then Just path else Nothing
+      go v@(Just _) _ = return v
+  in  foldlM go Nothing paths
 lookupFile _ _ = return Nothing
 
 findM :: (Monad m, Traversable f) => (a -> m (Maybe b)) -> f a -> m (Maybe b)
