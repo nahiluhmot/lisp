@@ -61,3 +61,12 @@
                       (recur (rest ys))
                     ys)))))
     (go xs)))
+
+(defun flatten (xs)
+  (foldr (lambda (x acc)
+           (let ((type (type-of x)))
+             (if (== type 'list)
+                 (append (flatten x) acc)
+               (cons x acc))))
+         ()
+         xs))
