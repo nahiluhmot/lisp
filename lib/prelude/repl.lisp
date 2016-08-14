@@ -7,7 +7,3 @@
               (recur))))
     (on-error (lambda (err) (puts err) (repl))
       (go))))
-
-(defun repl-main ()
-  (puts "Welcome to the Lisp REPL!")
-  (repl))

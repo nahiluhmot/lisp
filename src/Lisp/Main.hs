@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lisp.Repl where
+module Lisp.Main where
 
 import Prelude hiding (getLine, putStrLn, putStr)
 
@@ -15,9 +15,9 @@ import Lisp.Compiler
 import Lisp.Prelude
 import Lisp.VirtualMachine
 
-repl :: IO ()
-repl = do
-  (result, _) <- runLispM (defPrelude >> (parse "(repl-main)" >>= mapM_ (compile >=> eval))) emptyLispState
+lispMain :: IO ()
+lispMain = do
+  (result, _) <- runLispM (defPrelude >> (parse "(load \"lisp\")" >>= mapM_ (compile >=> eval))) emptyLispState
   case result of
     Left err -> do
       putStrLn $ "*** unhandled error: " `append` pack (show err)

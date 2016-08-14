@@ -17,6 +17,7 @@ data-files:          lib/prelude.lisp
                    , lib/prelude/macros.lisp
                    , lib/prelude/function.lisp
                    , lib/prelude/repl.lisp
+                   , lib/lisp.lisp
 
 library
   hs-source-dirs:      src
@@ -39,7 +40,7 @@ library
                      , Lisp.Prelude.Macros
                      , Lisp.Prelude.Math
                      , Lisp.Prelude.Meta
-                     , Lisp.Repl
+                     , Lisp.Main
                      , Paths_lisp
   build-depends:       base >= 4.7 && < 5
                      , text >= 1.2 && < 2
