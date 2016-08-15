@@ -18,14 +18,17 @@ import qualified Lisp.Core as C
 type Parser = ParsecT Text Bool LispM
 
 parse :: Text -> LispM (Seq Value)
-parse input = runParserT (values <* eof) False "*repl*" input
+parse input = runParserT (values' <* eof) False "*repl*" input
           >>= either (C.raiseParseError . pack . show) return
 
 parseFile :: FilePath -> LispM (Seq Value)
 parseFile path = do
   input <- liftIO $ IO.readFile path
-  result <- runParserT (values <* eof) False path input
+  result <- runParserT (values' <* eof) False path input
   either (C.raiseParseError . pack . show) return result
+
+values' :: Parser (Seq Value)
+values' = fromList <$> (whitespace *> many (value <* whitespace))
 
 values :: Parser (Seq Value)
 values = fromList <$> (whitespace *> many1 (value <* whitespace))
