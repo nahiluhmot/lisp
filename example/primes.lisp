@@ -12,10 +12,10 @@
               (let ((filtered
                      (select (lambda (prime) (!= 0 (% prime curr))) acc))
                     (next-primes (snoc primes curr)))
-                (if filtered
-                    (recur (first filtered) (rest filtered) next-primes)
-                  next-primes)))))
+                (if (>= (* curr curr) n)
+                    (append next-primes filtered)
+                  (recur (first filtered) (rest filtered) next-primes))))))
     (if (>= n 2)
-        (go 2 (range 2 n) ()))))
+        (go 2 (range 3 n) ()))))
 
 (puts (primes-to (first (read (first *argv*)))))

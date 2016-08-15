@@ -74,6 +74,8 @@ defPreludeList = do
         return $ DottedList val (vals >< (val' <| vals')) last
       (List val vals, Nil) -> return $ List val vals
       (List val vals, val') -> return $ DottedList val vals val'
+      (Nil, val@(List _ _)) -> return val
+      (Nil, val@(DottedList _ _ _)) -> return val
       (String str, String str') -> return . String $ mappend str str'
       (val, _) -> raiseTypeMismatch "list" val
 
