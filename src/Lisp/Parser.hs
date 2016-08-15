@@ -120,4 +120,4 @@ dot :: Parser Char
 dot = char '.'
 
 allowedSymbol :: Parser Char
-allowedSymbol = oneOf "+-*/?!=<>"
+allowedSymbol = oneOf "+-*/%?!=<>"
