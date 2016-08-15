@@ -1,13 +1,13 @@
 ;;; lisp.lisp: file executed on startup.
 
 (defun lisp-main ()
-  (cond
-   ((empty? *argv*)
-    (puts "Welcome to the Lisp REPL!")
-    (repl))
-   (t
-    (let ((file (first *argv*)))
-      (def *argv* (rest *argv*))
-      (load file)))))
+  (on-error (lambda (err) (puts err) (exit 1))
+    (if (empty? *argv*)
+        (do
+         (puts "Welcome to the Lisp REPL!")
+         (repl))
+      (let ((file (first *argv*)))
+        (def *argv* (rest *argv*))
+        (load file)))))
 
 (lisp-main)
