@@ -83,9 +83,11 @@ compileIf vals
       condition <- compile' cond
       thenCase <- compile body
       elseCase <- compileValues rest
+      let elseCase' | S.null elseCase = [Push Nil]
+                    | otherwise = elseCase
       return $ (condition |> BranchUnless (2 + S.length thenCase))
-            >< (thenCase |> Jump (succ $ S.length elseCase))
-            >< elseCase
+            >< (thenCase |> Jump (succ $ S.length elseCase'))
+            >< elseCase'
 
 compileQuote :: Value -> LispM (Seq Instruction)
 compileQuote val = singleton . Push <$> compileQuote' val
