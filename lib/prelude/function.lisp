@@ -12,3 +12,7 @@
              (func (apply acc args))))
          (last funcs)
          (but-last funcs)))
+
+(defun flip (f)
+  (lambda args
+    (apply f (reverse args))))
