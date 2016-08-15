@@ -27,14 +27,14 @@ defPreludeLoad = do
 
   defun1 "load" $ \val -> do
     case val of
-      (String path) -> do
-        let path' = unpack path
+      (String str) -> do
+        let path' = unpack str
         result <- lookupSymbol loadPath
         case result of
           List car cdr -> do
             result' <- findM (flip lookupFile path') (car <| cdr)
             case result' of
-              Nothing -> raise "load-error" $ "Cannot find file: " <> path
+              Nothing -> raise "load-error" $ "Cannot find file: " <> str
               Just file -> do
                 parsed <- parseFile file
                 mapM_ (compile >=> eval) parsed
@@ -49,9 +49,9 @@ lookupFile (String dir) path =
       paths = [ joinPath [dir', addExtension path ".lisp"]
               , joinPath [dir', path]
               ]
-      go Nothing path = do
-        exists <- liftIO $ doesFileExist path
-        return $ if exists then Just path else Nothing
+      go Nothing file = do
+        exists <- liftIO $ doesFileExist file
+        return $ if exists then Just file else Nothing
       go v@(Just _) _ = return v
   in  foldlM go Nothing paths
 lookupFile _ _ = return Nothing

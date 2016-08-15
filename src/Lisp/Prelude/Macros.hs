@@ -69,7 +69,7 @@ compileLet vals = do
   case toSeq defs of
     Right conses -> do
       bodyInsns <- compileValues body
-      (PushScope <|) <$> foldrM (\def acc -> (>< acc) <$> go def) (bodyInsns |> PopScope) conses
+      (PushScope <|) <$> foldrM (\curr acc -> (>< acc) <$> go curr) (bodyInsns |> PopScope) conses
     Left _ -> raiseInvalidLet defs
 
 compileRecur :: Seq Value -> LispM (Seq Instruction)

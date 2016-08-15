@@ -51,7 +51,6 @@ data Instruction = Noop
                  | Funcall Int
                  | Return
                  | Recur Int
-                 | Raise
                  | PushErrorHandler
                  | PopErrorHandler
 

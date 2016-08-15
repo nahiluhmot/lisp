@@ -29,6 +29,6 @@ defPrelude = do
   defPreludeMath
   defPreludeMeta
 
-  funcallByName "load" [String "prelude"]
+  _ <- funcallByName "load" [String "prelude"]
 
   return ()

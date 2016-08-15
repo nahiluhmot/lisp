@@ -5,14 +5,11 @@ module Lisp.Main where
 
 import Prelude hiding (getLine, putStrLn, putStr)
 
-import Control.Monad.Except
 import Data.Text
 import Data.Text.IO
 
 import Lisp.Data
 import Lisp.Core
-import Lisp.Parser
-import Lisp.Compiler
 import Lisp.Prelude
 import Lisp.VirtualMachine
 

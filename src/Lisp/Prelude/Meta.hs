@@ -2,6 +2,7 @@
 
 module Lisp.Prelude.Meta (defPreludeMeta) where
 
+import Prelude hiding (id)
 import Control.Monad.Except
 import Data.Foldable
 import Data.Sequence as S

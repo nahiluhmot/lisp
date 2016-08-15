@@ -68,12 +68,6 @@ evalInstruction _ (Recur argc) = 0 <$ do
   result <- gets currentFunc
   (CompiledFunction _ ids extra _) <- maybe raiseInvalidRecur return result
   popN argc >>= matchArgs ids extra >>= localDef'
-evalInstruction _ Raise = do
-  tup <- pop2
-  case tup of
-    (Symbol sym, String msg) -> raise' sym msg
-    (Symbol _, given) -> raiseTypeMismatch "string" given
-    (given, _) -> raiseTypeMismatch "symbol" given
 evalInstruction pc PushErrorHandler = succ pc <$ do
   val <- pop
   case val of
