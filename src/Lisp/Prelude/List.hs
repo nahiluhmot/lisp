@@ -111,4 +111,4 @@ listWithPositiveInteger f num@(Number idx) vals
           Nil -> f n []
           (List val vals') -> f n (val <| vals')
           _ -> raiseTypeMismatch "list" vals
-listWithPositiveInteger _ _ num = raiseTypeMismatch "positive integer" num
+listWithPositiveInteger _ num _ = raiseTypeMismatch "positive integer" num

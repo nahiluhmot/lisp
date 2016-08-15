@@ -45,6 +45,17 @@
 (defun reject (f xs)
   (select (lambda (x) (not (f x))) xs))
 
+(defun partition (f init)
+  (let ((go (lambda (xs ys zs)
+              (if xs
+                  (let ((fst (first xs))
+                        (rst (rest xs)))
+                    (if (f fst)
+                        (recur rst (snoc ys fst) zs)
+                      (recur rst ys (snoc zs fst))))
+                (list ys zs)))))
+    (go init () ())))
+
 (defun take-while (f xs)
   (let ((go (lambda (ys acc)
               (if ys
@@ -70,3 +81,13 @@
                (cons x acc))))
          ()
          xs))
+
+(defun sort (xs)
+  (if (> (length xs) 1)
+      (let ((fst (first xs))
+            (rst (rest xs))
+            (partitioned (partition (lambda (x) (< x fst)) rst))
+            (ys (index 0 partitioned))
+            (zs (index 1 partitioned)))
+        (append (sort ys) (cons fst (sort zs))))
+    xs))
