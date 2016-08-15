@@ -12,7 +12,7 @@
               (let ((filtered
                      (select (lambda (prime) (!= 0 (% prime curr))) acc))
                     (next-primes (snoc primes curr)))
-                (if (>= (* curr curr) n)
+                (if (> (* curr curr) n)
                     (append next-primes filtered)
                   (recur (first filtered) (rest filtered) next-primes))))))
     (if (>= n 2)
