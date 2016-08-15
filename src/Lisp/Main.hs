@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Lisp.Main where
@@ -17,8 +18,8 @@ import Lisp.VirtualMachine
 
 lispMain :: IO ()
 lispMain = do
-  (result, _) <- runLispM (defPrelude >> (parse "(load \"lisp\")" >>= mapM_ (compile >=> eval))) emptyLispState
+  (result, _) <- runLispM (defPrelude >> funcallByName "load" [String "lisp"]) emptyLispState
   case result of
     Left err -> do
       putStrLn $ "*** unhandled error: " `append` pack (show err)
-    Right () -> return ()
+    Right _ -> return ()
