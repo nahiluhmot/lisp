@@ -1,10 +1,10 @@
 ;;; fibs.lisp: example fibonacci program
 
-(defun fibs-to (n)
-  (let ((go (lambda (a b acc)
-              (if (> a n)
+(defun fibs (n)
+  (let ((go (lambda (count a b acc)
+              (if (> count n)
                   acc
-                (recur b (+ a b) (snoc acc a))))))
-    (go 0 1 ())))
+                (recur (+ count 1) b (+ a b) (snoc acc a))))))
+    (go 0 0 1 ())))
 
-(puts (fibs-to (first (read (first *argv*)))))
+(fibs (first (read (first *argv*))))
