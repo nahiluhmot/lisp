@@ -5,11 +5,13 @@ module Lisp.Prelude.List (defPreludeList) where
 
 import Control.Monad
 import Prelude hiding (length, last)
+import Data.Foldable (foldlM, foldrM)
 import Data.Sequence as S
 import Data.Ratio
 
 import Lisp.Data
 import Lisp.Core
+import Lisp.VirtualMachine
 
 defPreludeList :: LispM ()
 defPreludeList = do
@@ -101,6 +103,20 @@ defPreludeList = do
     when (length args < 2) $ raiseArgMismatch 2 0
     let (rest :> final) = viewr args
     return $ dottedList rest final
+
+  defun3 "foldr" $ \f y vals ->
+    case (f, vals) of
+      (Lambda _, Nil) -> return y
+      (Lambda func, List x xs) -> foldrM (\e acc -> funcall func [e, acc]) y (x <| xs)
+      (Lambda _, v) -> raiseTypeMismatch "list" v
+      (v, _) -> raiseTypeMismatch "lambda" v
+
+  defun3 "foldl" $ \f y vals ->
+    case (f, vals) of
+      (Lambda _, Nil) -> return y
+      (Lambda func, List x xs) -> foldlM (\acc e -> funcall func [acc, e]) y (x <| xs)
+      (Lambda _, v) -> raiseTypeMismatch "list" v
+      (v, _) -> raiseTypeMismatch "lambda" v
 
 listWithPositiveInteger :: (Int -> Seq Value -> LispM Value) -> Value -> Value -> LispM Value
 listWithPositiveInteger f num@(Number idx) vals

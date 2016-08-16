@@ -3,20 +3,6 @@
 (defun empty? (xs)
   (== 'nil (type-of xs)))
 
-(defun foldl (f initial list)
-  (let ((go (lambda (acc xs)
-              (if xs
-                  (recur (f acc (first xs)) (rest xs))
-                acc))))
-    (go initial list)))
-
-(defun foldr (f initial list)
-  (let ((go (lambda (acc xs)
-              (if xs
-                  (recur (f (last xs) acc) (but-last xs))
-                acc))))
-    (go initial list)))
-
 (defun unfoldr (f init)
   (let ((go (lambda (curr acc)
               (let ((next (f curr)))
