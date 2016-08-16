@@ -7,6 +7,7 @@ import Control.Monad.State.Strict
 import Data.Sequence as S
 import Data.Text
 import Data.IntMap.Strict as IM
+import qualified Data.Vector as V
 
 import Lisp.SymbolTable as ST
 
@@ -25,11 +26,11 @@ type Function = Either NativeFunction (CompiledFunction, [Env])
 
 type Macro = Either NativeMacro (CompiledFunction, [Env])
 
-type NativeMacro = (Int, Seq Value -> LispM (Seq Instruction))
+type NativeMacro = (Int, Seq Value -> LispM (V.Vector Instruction))
 
 type NativeFunction = (Int, Seq Value -> LispM Value)
 
-data CompiledFunction = CompiledFunction { instructions :: Seq Instruction
+data CompiledFunction = CompiledFunction { instructions :: V.Vector Instruction
                                          , argIDs       :: Seq Int
                                          , extraArgsID  :: Maybe Int
                                          , source       :: Value
@@ -102,7 +103,7 @@ toSeq =
       go val = Left ([], val)
   in  go
 
-macro :: Int -> (Seq Value -> LispM (Seq Instruction)) -> Value
+macro :: Int -> (Seq Value -> LispM (V.Vector Instruction)) -> Value
 macro name func = Macro (Left (name, func))
 
 function :: Int -> (Seq Value -> LispM Value) -> Value

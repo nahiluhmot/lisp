@@ -7,8 +7,10 @@ module Lisp.Prelude.Macros (defPreludeMacros) where
 
 import Prelude hiding (id, last)
 import Control.Monad
+import Data.Monoid
 import Data.Sequence as S
 import Data.Foldable
+import qualified Data.Vector as V
 
 import Lisp.Data
 import Lisp.Core
@@ -26,11 +28,11 @@ defPreludeMacros = do
     func <- compileFunc mac vals
     return $ [MakeMacro func]
 
-  defmacro1 "return" $ \val -> (|> Return) <$> compile' val
+  defmacro1 "return" $ \val -> (flip V.snoc Return) <$> compile' val
 
   defmacro2 "def" $ \name val ->
     case name of
-      Symbol sym -> (|> Def sym) <$> compile' val
+      Symbol sym -> flip V.snoc (Def sym) <$> compile' val
       val' -> raiseTypeMismatch "symbol" val'
 
   defmacro "do" compileValues
@@ -52,30 +54,30 @@ compileFunc sym vals = do
           (Left (xs, x)) -> (,) <$> namesToIDs xs <*> (Just <$> unSymbol x)
           (Right xs) -> (, Nothing) <$> namesToIDs xs
       insns <- compileValues body
-      return $ CompiledFunction { instructions = insns
+      return $ CompiledFunction { instructions = V.force insns
                                 , argIDs = ids
                                 , extraArgsID = extra
                                 , source = List sym vals
                                 }
 
-compileLet :: Seq Value -> LispM (Seq Instruction)
+compileLet :: Seq Value -> LispM (V.Vector Instruction)
 compileLet vals = do
   when (S.null vals) $ raiseArgMismatch 2 0
   let (defs :< body) = viewl vals
       go sexp =
         case toSeq sexp of
-          Right [Symbol id, value] -> (|> Set id) <$> compile' value
+          Right [Symbol id, value] -> flip V.snoc (Set id) <$> compile' value
           _ -> raiseInvalidLet sexp
   case toSeq defs of
     Right conses -> do
       bodyInsns <- compileValues body
-      (PushScope <|) <$> foldrM (\curr acc -> (>< acc) <$> go curr) (bodyInsns |> PopScope) conses
+      V.cons PushScope <$> foldrM (\curr acc -> (<> acc) <$> go curr) (V.snoc bodyInsns PopScope) conses
     Left _ -> raiseInvalidLet defs
 
-compileRecur :: Seq Value -> LispM (Seq Instruction)
-compileRecur args = (|> Recur (S.length args)) <$> compileValues' args
+compileRecur :: Seq Value -> LispM (V.Vector Instruction)
+compileRecur args = flip V.snoc (Recur (S.length args)) <$> compileValues' args
 
-compileIf :: Seq Value -> LispM (Seq Instruction)
+compileIf :: Seq Value -> LispM (V.Vector Instruction)
 compileIf vals
   | S.length vals < 2 = raiseArgMismatch 2 (S.length vals)
   | otherwise = do
@@ -83,14 +85,14 @@ compileIf vals
       condition <- compile' cond
       thenCase <- compile body
       elseCase <- compileValues rest
-      let elseCase' | S.null elseCase = [Push Nil]
+      let elseCase' | V.null elseCase = [Push Nil]
                     | otherwise = elseCase
-      return $ (condition |> BranchUnless (2 + S.length thenCase))
-            >< (thenCase |> Jump (succ $ S.length elseCase'))
-            >< elseCase'
+      return $ (V.snoc condition (BranchUnless $ 2 + V.length thenCase))
+            <> (V.snoc thenCase (Jump . succ $ V.length elseCase'))
+            <> elseCase'
 
-compileQuote :: Value -> LispM (Seq Instruction)
-compileQuote val = singleton . Push <$> compileQuote' val
+compileQuote :: Value -> LispM (V.Vector Instruction)
+compileQuote val = V.singleton . Push <$> compileQuote' val
 
 compileQuote' :: Value -> LispM Value
 compileQuote' val = do
@@ -101,7 +103,7 @@ compileQuote' val = do
       go curr = return curr
   go val
 
-compileSyntaxQuote :: Value -> LispM (Seq Instruction)
+compileSyntaxQuote :: Value -> LispM (V.Vector Instruction)
 compileSyntaxQuote arg = do
   quote <- symbol "quote"
   unquote <- symbol "unquote"
@@ -126,8 +128,8 @@ compileSyntaxQuote arg = do
         | car == quote && (S.length cdr == 1) = do
             result <- go $ List (S.index cdr 0) []
             case result of
-              Left val -> return . Left $ Push quotef <| (val |> Funcall 1)
-              Right val -> return . Right $ Push quotef <| (val |> Funcall 1)
+              Left val -> return . Left $ V.cons (Push quotef) (V.snoc val (Funcall 1))
+              Right val -> return . Right $ V.cons (Push quotef) (V.snoc val (Funcall 1))
         | otherwise = recur
         where recur = mapM go (car <| cdr) >>= foldrM combine (Right [Push Nil])
       go (DottedList car cdr last) = do
@@ -136,9 +138,9 @@ compileSyntaxQuote arg = do
         foldrM combine rest first
       go val = Right <$> compileQuote val
       combine (Right car') (Right cdr') =
-        return . Right $ Get cons <| ((car' >< cdr') |> Funcall 2)
+        return . Right $ V.cons (Get cons) (V.snoc (car' <> cdr') (Funcall 2))
       combine (Left car') (Right cdr') =
-        return . Right $ Get append <| ((car' >< cdr') |> Funcall 2)
+        return . Right $ V.cons (Get append) (V.snoc (car' <> cdr') (Funcall 2))
       combine _ _ =
         raiseInvalidSyntaxQuote "Cannot unquote-splat in cdr postion"
   result <- go arg

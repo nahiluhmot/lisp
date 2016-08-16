@@ -8,16 +8,17 @@ import Control.Monad.State.Strict hiding (state)
 import Data.Functor
 import Data.Sequence as S
 import Data.Text (Text)
+import qualified Data.Vector as V
 import qualified Data.IntMap.Strict as IM
 
 import Lisp.Data
 import Lisp.Core
 
-eval :: Seq Instruction -> LispM Value
+eval :: V.Vector Instruction -> LispM Value
 eval insns =
   let evalIndex pc
-        | (pc >= S.length insns) || (pc < 0) = return ()
-        | otherwise = evalInstruction pc (index insns pc) >>= evalIndex
+        | (pc >= V.length insns) || (pc < 0) = return ()
+        | otherwise = V.unsafeIndexM insns pc >>= evalInstruction pc >>= evalIndex
   in   do
     old <- get
     put $ old { stack = S.empty }

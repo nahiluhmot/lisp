@@ -5,7 +5,9 @@ module Lisp.Prelude.Error (defPreludeError) where
 
 import Prelude hiding (id, length)
 import Control.Monad.Except
+import Data.Monoid
 import Data.Sequence
+import qualified Data.Vector as V
 
 import Lisp.Compiler
 import Lisp.Data
@@ -34,7 +36,7 @@ defPreludeError = do
       (handler :< body) -> do
         handler' <- compile handler
         body' <- compileValues body
-        return $ (handler' |> PushErrorHandler) >< (body' |> PopErrorHandler)
+        return $ (V.snoc handler' PushErrorHandler) <> (V.snoc body' PopErrorHandler)
 
   defun1 "error-type" $ \val ->
     case val of

@@ -12,12 +12,13 @@ import Prelude hiding (id, length)
 import Data.Foldable (foldrM)
 import Data.Maybe
 import Data.Sequence
+import qualified Data.Vector as V
 
 import Lisp.Data
 import Lisp.Core
 import Lisp.VirtualMachine
 
-compile :: Value -> LispM (Seq Instruction)
+compile :: Value -> LispM (V.Vector Instruction)
 compile Nil = return [Push Nil]
 compile (Symbol id) = return [Get id]
 compile (Quote lit) = return [Push lit]
@@ -25,10 +26,10 @@ compile (List fn args) = compileFuncall fn args
 compile val@(DottedList _ _ _) = raiseCompileDottedList val
 compile lit = return [Push lit]
 
-compileValues :: Seq Value -> LispM (Seq Instruction)
+compileValues :: Seq Value -> LispM (V.Vector Instruction)
 compileValues = concatM compile
 
-compile' :: Value -> LispM (Seq Instruction)
+compile' :: Value -> LispM (V.Vector Instruction)
 compile' val = do
   insns <- compile val
   let go (Recur _)= raiseDisallowedForm "recur"
@@ -36,17 +37,17 @@ compile' val = do
       go insn = return insn
   mapM go insns
 
-compileValues' :: Seq Value -> LispM (Seq Instruction)
+compileValues' :: Seq Value -> LispM (V.Vector Instruction)
 compileValues' = concatM compile'
 
-compileFuncall :: Value -> Seq Value -> LispM (Seq Instruction)
+compileFuncall :: Value -> Seq Value -> LispM (V.Vector Instruction)
 compileFuncall fn@(List _ _) args =
-  fmap (|> Funcall (length args)) $ (><) <$> compile fn <*> compileValues args
+  fmap (flip V.snoc (Funcall (length args))) $ mappend <$> compile fn <*> compileValues args
 compileFuncall (Symbol fn) args =
   let macroExpand (Macro (Left (_, native))) = Just $ native args
       macroExpand (Macro (Right func)) = Just $ funcall (Right func) args >>= compile
       macroExpand _ = Nothing
-      makeFuncall = (|> Funcall (length args)) <$> ((Get fn <|) <$> compileValues' args)
+      makeFuncall = (flip V.snoc (Funcall (length args))) <$> (V.cons (Get fn) <$> compileValues' args)
   in  lookupSymbol' fn >>= \val -> fromMaybe makeFuncall $ val >>= macroExpand
 compileFuncall val _ = raiseTypeMismatch "function or macro" val
 
