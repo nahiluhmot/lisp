@@ -124,7 +124,7 @@ modifyScope f = do
   put $ state { scope = scope' }
   return ret
 
-modifyStack :: (Seq Value -> LispM (a, Seq Value)) -> LispM a
+modifyStack :: ([Value] -> LispM (a, [Value])) -> LispM a
 modifyStack f = do
   state <- get
   (ret, stack') <- f $ stack state
@@ -132,7 +132,7 @@ modifyStack f = do
   return ret
 
 push :: Value -> LispM ()
-push v = modifyStack $ \vs -> return ((), v <| vs)
+push v = modifyStack $ \vs -> return ((), v : vs)
 
 pop :: LispM Value
 pop = flip S.index 0 <$> popN 1
@@ -148,10 +148,8 @@ popN int = popNWith int (<|) S.empty
 popNWith :: Int -> (Value -> a -> a) -> a -> LispM a
 popNWith int f =
   let go 0 acc vals = return (acc, vals)
-      go n acc vals =
-        case viewl vals of
-          EmptyL -> raiseEmptyStack
-          (val :< vals') -> go (pred n) (f val acc) vals'
+      go n acc (val : vals') = go (pred n) (f val acc) vals'
+      go _ _ _ = raiseEmptyStack
   in  modifyStack . go int
 
 localDef :: Int -> Value -> LispM ()

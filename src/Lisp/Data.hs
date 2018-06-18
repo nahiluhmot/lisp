@@ -59,7 +59,7 @@ type Env = IntMap Value
 data LispState = LispState { symbolTable   :: SymbolTable Text
                            , globals       :: Env
                            , scope         :: [Env]
-                           , stack         :: Seq Value
+                           , stack         :: [Value]
                            , currentFunc   :: Maybe CompiledFunction
                            , errorHandlers :: [Function]
                            }
@@ -74,7 +74,7 @@ emptyLispState =
   LispState { symbolTable = ST.empty
             , globals = IM.empty
             , scope = []
-            , stack = S.empty
+            , stack = []
             , currentFunc = Nothing
             , errorHandlers = []
             }

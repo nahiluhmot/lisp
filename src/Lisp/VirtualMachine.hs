@@ -20,11 +20,11 @@ eval insns =
         | otherwise = evalInstruction pc (index insns pc) >>= evalIndex
   in   do
     old <- get
-    put $ old { stack = S.empty }
+    put $ old { stack = [] }
     catchError (evalIndex 0) handleError
     new <- get
-    let result | S.null (stack new) = Nil
-               | otherwise = S.index (stack new) 0
+    let result | P.null (stack new) = Nil
+               | otherwise = head (stack new)
     put $ new { stack = stack old }
     return result
 
