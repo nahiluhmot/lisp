@@ -22,6 +22,11 @@ defPreludeIO = do
     case sexp of
       String str -> liftIO (IO.putStr str >> hFlush stdout) $> Nil
       _ -> raiseTypeMismatch "string" sexp
+  defun1 "println" $ \sexp ->
+    case sexp of
+      String str -> liftIO (IO.putStrLn str >> hFlush stdout) $> Nil
+      _ -> raiseTypeMismatch "string" sexp
+
   defun0 "gets" $ String <$> liftIO IO.getLine
 
   rawArgv <- liftIO getArgs
