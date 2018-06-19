@@ -179,25 +179,25 @@ matchArgs ids (Just id) args
     in  return . foldr (uncurry IM.insert) IM.empty  $ S.zip (ids |> id) (args' |> list rest)
   | otherwise = raiseArgMismatch (S.length ids) (S.length args)
 
-defmacro :: Text -> (Seq Value -> LispM (Seq Instruction)) -> LispM ()
+defmacro :: Text -> (Seq Value -> LispM Instruction) -> LispM ()
 defmacro sym func = symToID sym >>= \id -> def id $ Macro (Left (id, func))
 
-defmacroN :: Int -> Text -> (Seq Value -> LispM (Seq Instruction)) -> LispM ()
+defmacroN :: Int -> Text -> (Seq Value -> LispM Instruction) -> LispM ()
 defmacroN n sym func =
   defmacro sym $ \args -> do
     when (S.length args /= n) $ raiseArgMismatch n (S.length args)
     func args
 
-defmacro0 :: Text -> LispM (Seq Instruction) -> LispM ()
+defmacro0 :: Text -> LispM Instruction -> LispM ()
 defmacro0 sym func = defmacroN 0 sym $ const func
 
-defmacro1 :: Text -> (Value -> LispM (Seq Instruction)) -> LispM ()
+defmacro1 :: Text -> (Value -> LispM Instruction) -> LispM ()
 defmacro1 sym func = defmacroN 1 sym $ \[x] -> func x
 
-defmacro2 :: Text -> (Value -> Value -> LispM (Seq Instruction)) -> LispM ()
+defmacro2 :: Text -> (Value -> Value -> LispM Instruction) -> LispM ()
 defmacro2 sym func = defmacroN 2 sym $ \[x, y] -> func x y
 
-defmacro3 :: Text -> (Value -> Value -> Value -> LispM (Seq Instruction)) -> LispM ()
+defmacro3 :: Text -> (Value -> Value -> Value -> LispM Instruction) -> LispM ()
 defmacro3 sym func = defmacroN 3 sym $ \[x, y, z] -> func x y z
 
 defun :: Text -> (Seq Value -> LispM Value) -> LispM ()

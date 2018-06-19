@@ -99,7 +99,7 @@ toSeq =
       go val = Left ([], val)
   in  go
 
-macro :: Int -> (Seq Value -> LispM (Seq Instruction)) -> Value
+macro :: Int -> (Seq Value -> LispM Instruction) -> Value
 macro name func = Macro (Left (name, func))
 
 function :: Int -> (Seq Value -> LispM Value) -> Value
@@ -116,3 +116,23 @@ instance Eq Value where
     (xs == ys) && (x == y) && (x' == y')
   (==) (Error x) (Error y) = x == y
   (==) _ _ = False
+
+instance Monoid Instruction where
+  mempty = Halt
+  mappend m n =
+    let go Halt = n
+        go Return = Return
+        go (Recur i) = Recur i
+        go (Push v m') = Push v (go m')
+        go (PushScope m') = PushScope (go m')
+        go (PopScope m') = PopScope (go m')
+        go (PushErrorHandler m') = PushErrorHandler (go m')
+        go (PopErrorHandler m') = PopErrorHandler (go m')
+        go (Def i m') = Def i (go m')
+        go (Get i m') = Get i (go m')
+        go (Set i m') = Set i (go m')
+        go (If m' m'') = If (go m') (go m'')
+        go (MakeLambda c m') = MakeLambda c (go m')
+        go (MakeMacro c m') = MakeMacro c (go m')
+        go (Funcall i m') = Funcall i (go m')
+    in  go m

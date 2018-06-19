@@ -5,7 +5,6 @@ module Lisp.VirtualMachine (eval, funcall, funcallByName) where
 import Prelude as P
 import Control.Monad.Except
 import Control.Monad.State.Strict hiding (state)
-import Data.Functor
 import Data.Sequence as S
 import Data.Text (Text)
 import qualified Data.IntMap.Strict as IM
@@ -13,72 +12,66 @@ import qualified Data.IntMap.Strict as IM
 import Lisp.Data
 import Lisp.Core
 
-eval :: Seq Instruction -> LispM Value
-eval insns =
-  let evalIndex pc
-        | (pc >= S.length insns) || (pc < 0) = return ()
-        | otherwise = evalInstruction pc (index insns pc) >>= evalIndex
-  in   do
-    old <- get
-    put $ old { stack = [] }
-    catchError (evalIndex 0) handleError
-    new <- get
-    let result | P.null (stack new) = Nil
-               | otherwise = head (stack new)
-    put $ new { stack = stack old }
-    return result
+eval :: Instruction -> LispM Value
+eval insn = do
+  old <- get
+  put old { stack = [] }
+  evalInstruction insn `catchError` handleError
+  new <- get
+  let result | P.null (stack new) = Nil
+             | otherwise = head (stack new)
+  put $ new { stack = stack old }
+  return result
 
-evalInstruction :: Int -> Instruction -> LispM Int
-evalInstruction pc Noop = return $ succ pc
-evalInstruction pc Pop = pop $> succ pc
-evalInstruction pc (Push val) = push val $> succ pc
-evalInstruction pc PushScope =
-  modifyScope $ \scopes ->
-    return $ (succ pc, IM.empty : scopes)
-evalInstruction pc PopScope =
-  modifyScope $ \scopes ->
-    case scopes of
-      [] -> raiseNoScope
-      (_ : scope') -> return (succ pc, scope')
-evalInstruction pc (Def sym) = (pop >>= def sym >> push (Symbol sym)) $> succ pc
-evalInstruction pc (Get sym) = (lookupSymbol sym >>= push) $> succ pc
-evalInstruction pc (Set sym) = (pop >>= localDef sym >> push (Symbol sym)) $> succ pc
-evalInstruction pc (Jump idx) = return $ pc + idx
-evalInstruction pc (BranchIf idx) =
-  let branchIf Nil = succ pc
-      branchIf _ = pc + idx
-  in  branchIf <$> pop
-evalInstruction pc (BranchUnless idx) =
-  let branchUnless Nil = pc + idx
-      branchUnless _ = succ pc
-  in  branchUnless <$> pop
-evalInstruction pc (MakeLambda func) = succ pc <$ do
-  envs <- gets scope
-  push $ Lambda (Right (func, envs))
-evalInstruction pc (MakeMacro func) = succ pc <$ do
-  envs <- gets scope
-  push $ Macro (Right (func, envs))
-evalInstruction pc (Funcall argc) = succ pc <$ do
-  (fn :< args) <- fmap viewl . popN $ succ argc
-  case fn of
-    (Lambda func) -> funcall func args >>= push
-    _ -> raiseTypeMismatch "lambda" fn
-evalInstruction _ Return = return (-1)
-evalInstruction _ (Recur argc) = 0 <$ do
+evalInstruction :: Instruction -> LispM ()
+evalInstruction Halt = pure ()
+evalInstruction Return = pure ()
+evalInstruction (Recur argc) = do
+  args <- popN argc
   fs <- gets funcs
   when (P.null fs) raiseInvalidRecur
-  let (CompiledFunction _ ids extra _) = head fs
-  popN argc >>= matchArgs ids extra >>= localDef'
-evalInstruction pc PushErrorHandler = succ pc <$ do
+  let (CompiledFunction insn ids extra _) = head fs
+  imap <- matchArgs ids extra args
+  localDef' imap
+  evalInstruction insn
+evalInstruction (Push v i) = push v >> evalInstruction i
+evalInstruction (PushScope i) = do
+  modifyScope $ \scopes ->
+    pure ((), IM.empty : scopes)
+  evalInstruction i
+evalInstruction (PopScope i) =
+  let go [] = raiseNoScope
+      go (_ : scope') = pure ((), scope')
+  in  modifyScope go >> evalInstruction i
+evalInstruction (PushErrorHandler i) = do
   val <- pop
   case val of
     (Lambda func) ->
       modify $ \state -> state { errorHandlers = func : errorHandlers state }
     _ -> raiseTypeMismatch "lambda" val
-evalInstruction pc PopErrorHandler = succ pc <$ do
+  evalInstruction i
+evalInstruction (PopErrorHandler i) = do
   state <- get
   when (P.null $ errorHandlers state) raiseNoErrorHandlers
   put $ state { errorHandlers = tail $ errorHandlers state }
+  evalInstruction i
+evalInstruction (Def sym i) = pop >>= def sym >> push (Symbol sym) >> evalInstruction i
+evalInstruction (Get sym i) = lookupSymbol sym >>= push >> evalInstruction i
+evalInstruction (Set sym i) = pop >>= localDef sym >> push (Symbol sym) >> evalInstruction i
+evalInstruction (If t e) =
+  let branchIf Nil = e
+      branchIf _ = t
+  in  pop >>= evalInstruction . branchIf
+evalInstruction (MakeLambda func i) =
+  gets scope >>= \envs -> push (Lambda (Right (func, envs))) >> evalInstruction i
+evalInstruction (MakeMacro func i) =
+  gets scope >>= \envs -> push (Macro (Right (func, envs))) >> evalInstruction i
+evalInstruction (Funcall argc i) = do
+  (fn :< args) <- viewl <$> popN (succ argc)
+  case fn of
+    (Lambda func) -> funcall func args >>= push
+    _ -> raiseTypeMismatch "lambda" fn
+  evalInstruction i
 
 funcall :: Function -> Seq Value -> LispM Value
 funcall (Left (_, run)) args = run args
