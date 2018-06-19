@@ -25,34 +25,31 @@ type Function = Either NativeFunction (CompiledFunction, [Env])
 
 type Macro = Either NativeMacro (CompiledFunction, [Env])
 
-type NativeMacro = (Int, Seq Value -> LispM (Seq Instruction))
+type NativeMacro = (Int, Seq Value -> LispM Instruction)
 
 type NativeFunction = (Int, Seq Value -> LispM Value)
 
-data CompiledFunction = CompiledFunction { instructions :: Seq Instruction
+data CompiledFunction = CompiledFunction { instructions :: Instruction
                                          , argIDs       :: Seq Int
                                          , extraArgsID  :: Maybe Int
                                          , source       :: Value
                                          }
 
-data Instruction = Noop
-                 | Pop
-                 | Push Value
-                 | PushScope
-                 | PopScope
-                 | Def Int
-                 | Get Int
-                 | Set Int
-                 | Jump Int
-                 | BranchIf Int
-                 | BranchUnless Int
-                 | MakeLambda CompiledFunction
-                 | MakeMacro CompiledFunction
-                 | Funcall Int
+data Instruction = Halt
                  | Return
                  | Recur Int
-                 | PushErrorHandler
-                 | PopErrorHandler
+                 | Push Value Instruction
+                 | PushScope Instruction
+                 | PopScope Instruction
+                 | PushErrorHandler Instruction
+                 | PopErrorHandler Instruction
+                 | Def Int Instruction
+                 | Get Int Instruction
+                 | Set Int Instruction
+                 | If Instruction Instruction
+                 | MakeLambda CompiledFunction Instruction
+                 | MakeMacro CompiledFunction Instruction
+                 | Funcall Int Instruction
 
 type Env = IntMap Value
 
