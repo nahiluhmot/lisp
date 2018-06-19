@@ -60,7 +60,7 @@ data LispState = LispState { symbolTable   :: SymbolTable Text
                            , globals       :: Env
                            , scope         :: [Env]
                            , stack         :: [Value]
-                           , currentFunc   :: Maybe CompiledFunction
+                           , funcs         :: [CompiledFunction]
                            , errorHandlers :: [Function]
                            }
 
@@ -75,7 +75,7 @@ emptyLispState =
             , globals = IM.empty
             , scope = []
             , stack = []
-            , currentFunc = Nothing
+            , funcs = []
             , errorHandlers = []
             }
 

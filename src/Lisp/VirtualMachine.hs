@@ -65,8 +65,9 @@ evalInstruction pc (Funcall argc) = succ pc <$ do
     _ -> raiseTypeMismatch "lambda" fn
 evalInstruction _ Return = return (-1)
 evalInstruction _ (Recur argc) = 0 <$ do
-  result <- gets currentFunc
-  (CompiledFunction _ ids extra _) <- maybe raiseInvalidRecur return result
+  fs <- gets funcs
+  when (P.null fs) raiseInvalidRecur
+  let (CompiledFunction _ ids extra _) = head fs
   popN argc >>= matchArgs ids extra >>= localDef'
 evalInstruction pc PushErrorHandler = succ pc <$ do
   val <- pop
@@ -84,9 +85,9 @@ funcall (Left (_, run)) args = run args
 funcall (Right (func@(CompiledFunction insns ids extra _), scope')) args = do
   currScope <- matchArgs ids extra args
   ours <- get
-  put $ ours { scope = currScope : scope', currentFunc = Just func }
+  put $ ours { scope = currScope : scope', funcs = func : funcs ours }
   val <- eval insns
-  modify $ \curr -> curr { scope = scope ours, currentFunc = currentFunc ours }
+  modify $ \curr -> curr { scope = scope ours, funcs = funcs ours }
   return val
 
 funcallByName :: Text -> Seq Value -> LispM Value
