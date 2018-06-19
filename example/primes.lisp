@@ -18,4 +18,4 @@
     (if (>= n 2)
         (go 2 (range 3 n) ()))))
 
-(primes-to (first (read (first *argv*))))
+(puts (last (primes-to (first (read (first *argv*))))))

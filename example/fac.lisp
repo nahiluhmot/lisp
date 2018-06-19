@@ -7,4 +7,4 @@
                 (recur (- m 1) (* m acc))))))
     (go n 1)))
 
-(fac (first (read (first *argv*))))
+(puts (fac (first (read (first *argv*)))))
