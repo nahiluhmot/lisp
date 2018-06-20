@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -6,6 +7,7 @@ module Lisp.Parser (parse, parseFile) where
 import Control.Monad.State.Strict hiding (state)
 import Data.Char (digitToInt)
 import Data.Functor
+import Data.Monoid ((<>))
 import Data.Sequence as S
 import Data.Text hiding (foldl, foldr, map)
 import Data.Text.IO as IO
@@ -95,7 +97,19 @@ symbol = do
     (lift . C.symbol . pack)
 
 str :: Parser Value
-str = String . pack <$> (char '"' *> many (noneOf ['"']) <* char '"')
+str =
+  let go False acc = do
+        s <- many (noneOf "\"\\")
+        (char '"' $> (acc <> s)) <|> (char '\\' *> go True (acc <> s))
+      go True acc = (char 'a' *> go False (acc <> "\a"))
+                <|> (char 'b' *> go False (acc <> "\b"))
+                <|> (char 'f' *> go False (acc <> "\f"))
+                <|> (char 'n' *> go False (acc <> "\n"))
+                <|> (char 'r' *> go False (acc <> "\r"))
+                <|> (char 't' *> go False (acc <> "\t"))
+                <|> (char 'v' *> go False (acc <> "\v"))
+                <|> (anyChar >>= \c -> go False (acc <> ('\\' : c : [])))
+  in  String . pack <$> (char '"' *> go False "")
 
 num :: Parser Value
 num = do
