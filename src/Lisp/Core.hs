@@ -135,7 +135,10 @@ push :: Value -> LispM ()
 push v = modifyStack $ \vs -> return ((), v : vs)
 
 pop :: LispM Value
-pop = flip S.index 0 <$> popN 1
+pop =
+  let go [] = raiseEmptyStack
+      go (x : xs) = pure (x, xs)
+  in  modifyStack go
 
 pop2 :: LispM (Value, Value)
 pop2 = do
