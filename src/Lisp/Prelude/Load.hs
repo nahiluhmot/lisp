@@ -37,7 +37,7 @@ defPreludeLoad = do
               Nothing -> raise "load-error" $ "Cannot find file: " <> str
               Just file -> do
                 parsed <- parseFile file
-                mapM_ (compile >=> eval) parsed
+                mapM_ (compile >=> \i -> i `seq` eval i) parsed
                 return Nil
           _ -> raiseTypeMismatch "list" result
       _ -> raiseTypeMismatch "string" val
