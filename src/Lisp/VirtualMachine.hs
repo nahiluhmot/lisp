@@ -14,13 +14,12 @@ import Lisp.Core
 
 eval :: Instruction -> LispM Value
 eval insn = do
-  old <- get
-  put old { stack = [] }
+  old <- gets stack
   evalInstruction insn `catchError` handleError
   new <- get
   let result | P.null (stack new) = Nil
              | otherwise = head (stack new)
-  put $ new { stack = stack old }
+  put $ new { stack = old }
   return result
 
 evalInstruction :: Instruction -> LispM ()
