@@ -15,16 +15,13 @@ import Lisp.Core
 eval :: Instruction -> LispM Value
 eval insn = do
   old <- gets stack
-  evalInstruction insn `catchError` handleError
-  new <- get
-  let result | P.null (stack new) = Nil
-             | otherwise = head (stack new)
-  put $ new { stack = old }
-  return result
+  val <- evalInstruction insn `catchError` (\e -> handleError e >> pop)
+  modify $ \new -> new { stack = old }
+  pure val
 
-evalInstruction :: Instruction -> LispM ()
-evalInstruction Halt = pure ()
-evalInstruction Return = pure ()
+evalInstruction :: Instruction -> LispM Value
+evalInstruction Halt = pure Nil
+evalInstruction Return = pop
 evalInstruction (Recur argc) = do
   args <- popN argc
   fs <- gets funcs

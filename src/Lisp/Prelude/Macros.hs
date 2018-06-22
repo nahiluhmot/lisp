@@ -53,7 +53,7 @@ compileFunc sym vals = do
           (Left (xs, x)) -> (,) <$> namesToIDs xs <*> (Just <$> unSymbol x)
           (Right xs) -> (, Nothing) <$> namesToIDs xs
       insns <- compileValues body
-      return $ CompiledFunction { instructions = insns
+      return $ CompiledFunction { instructions = insns <> Return
                                 , argIDs = ids
                                 , extraArgsID = extra
                                 , source = List sym vals
