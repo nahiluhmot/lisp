@@ -5,6 +5,7 @@ module Lisp.VirtualMachine (eval, funcall, funcallByName) where
 import Prelude as P
 import Control.Monad.Except
 import Control.Monad.State.Strict hiding (state)
+import Data.Maybe (fromMaybe)
 import Data.Sequence as S
 import Data.Text (Text)
 import qualified Data.IntMap.Strict as IM
@@ -20,7 +21,7 @@ eval insn = do
   pure val
 
 evalInstruction :: Instruction -> LispM Value
-evalInstruction Halt = pure Nil
+evalInstruction Halt = fromMaybe Nil <$> safePop
 evalInstruction Return = pop
 evalInstruction (Recur argc) = do
   args <- popN argc

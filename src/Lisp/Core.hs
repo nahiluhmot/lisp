@@ -134,6 +134,12 @@ modifyStack f = do
 push :: Value -> LispM ()
 push v = modifyStack $ \vs -> return ((), v : vs)
 
+safePop :: LispM (Maybe Value)
+safePop =
+  let go [] = pure (Nothing, [])
+      go (x : xs) = pure (Just x, xs)
+  in  modifyStack go
+
 pop :: LispM Value
 pop =
   let go [] = raiseEmptyStack
