@@ -39,10 +39,9 @@ defPreludeMeta = do
       List (Symbol id) cdr -> flip catchError (const $ return sexp) $ do
         val <- lookupSymbol id
         case val of
-          Macro (Right func) ->
-            funcall (Right func) cdr
-          _ -> return val
-      val -> return val
+          Macro (Right func) -> funcall (Right func) cdr
+          _ -> return sexp
+      _ -> return sexp
 
   defun "id" $ \sexp ->
     case viewl sexp of
